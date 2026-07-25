@@ -186,39 +186,30 @@ export class HUD {
       addItems(state.bag, "还没结账");
       this.addBtn(actions, "去结账", () => this.doCheckout(state), "btn-coral");
     } else if (scene === "kitchen") {
-      title.textContent = "厨房任务";
-      quest.textContent = this.kitchenQuest(state);
-      addHead("手提袋");
-      addItems(state.bag, "空");
-      addHead("冰箱");
-      addItems(state.fridge, "空");
-      addHead("操作台");
-      addItems(state.prep, "空");
-      addHead("做好的菜");
-      addItems(state.cooked, "还没做");
-      addHead("已装盘");
-      addItems(state.plated, "未装盘");
-      if (state.bag.length) {
-        this.addBtn(actions, "全部放进冰箱", () => {
-          if (putBagInFridge(state)) this.toast("食材放进冰箱啦");
-          else this.toast("放不进去，检查冰箱电源");
+      title.textContent = "厨房引导";
+      const guide = this.buildKitchenGuide(state);
+      quest.textContent = guide.quest;
+      list.innerHTML = "";
+      guide.steps.forEach((s, i) => {
+        const li = document.createElement("li");
+        li.className = s.done ? "guide-done" : s.current ? "guide-current" : "guide-todo";
+        li.innerHTML = `<span>${i + 1}. ${s.text}</span>`;
+        list.appendChild(li);
+      });
+      actions.innerHTML = "";
+      if (guide.action) {
+        this.addBtn(actions, guide.action.label, () => {
+          guide.action.onClick();
+          this.refresh(this.game.state);
         }, "btn-coral");
       }
-      if (state.cooked.length) {
-        this.addBtn(actions, "装盘 / 装碗", () => this.openPlateModal(state), "btn-coral");
-      }
-      this.addBtn(actions, "灶台菜谱", () => this.openCookRecipeModal("stove"));
-      if (state.plated.length && !state.carrying) {
-        this.addBtn(actions, "端起装好的菜", () => {
-          const item = pickUpPlated(state, 0);
-          if (item) {
-            this.toast(`端起了${item.dish}`);
-            this.game.syncCarryVisual();
-          }
+      if (guide.secondary) {
+        guide.secondary.forEach((s) => {
+          this.addBtn(actions, s.label, () => {
+            s.onClick();
+            this.refresh(this.game.state);
+          });
         });
-      }
-      if (state.carrying) {
-        this.addBtn(actions, "去餐厅上菜", () => this.game.go("dining"), "btn-coral");
       }
     } else if (scene === "dining") {
       title.textContent = "餐厅聚餐";
@@ -231,7 +222,7 @@ export class HUD {
       if (state.carrying) {
         this.addBtn(actions, "放到餐桌上", () => {
           if (placeOnTable(state)) {
-            this.toast("菜上桌啦！点「喊爸爸妈妈吃饭」请他们来餐厅一起吃吧～");
+            this.toast("菜上桌啦！下一步：喊爸爸妈妈来坐下吃饭");
             this.game.scenes.current?.onFoodPlaced?.(this.game);
             this.game.syncCarryVisual();
             this.refresh(state);
@@ -239,9 +230,9 @@ export class HUD {
         }, "btn-coral");
       }
       if (state.tableFood.length && state.mealPhase !== "eating" && state.mealPhase !== "done" && state.mealPhase !== "calling" && state.mealPhase !== "seating") {
-        this.addBtn(actions, "喊爸爸妈妈吃饭！", () => {
+        this.addBtn(actions, "▶ 喊爸爸妈妈来坐下吃饭", () => {
           if (startMealCall(state)) {
-            this.toast("开饭啦——爸爸妈妈快来餐厅！");
+            this.toast("开饭啦——爸爸妈妈快来餐厅坐好！");
             this.game.scenes.current?.onCallFamily?.(this.game);
             this.refresh(state);
           }
@@ -266,21 +257,122 @@ export class HUD {
   }
 
   kitchenQuest(state) {
-    if (state.bag.length) return "点冰箱把购物袋放进去";
-    if (state.fridge.length && !state.prep.length) return "打开冰箱取出食材，或打开灶台菜谱直接采购";
-    if (state.prep.some((i) => i.tag === "veg" && !i.washed)) return "去水槽洗菜";
-    if (state.cooked.length && !state.plated.length) return "把菜装进盘子或碗里";
-    if (state.plated.length || state.carrying) return "端菜去餐厅上桌，再喊爸妈吃饭";
-    return "开电器，点灶台看菜谱做饭";
+    if (state.bag.length) return "下一步：把购物袋放进冰箱";
+    if (state.prep.some((i) => i.tag === "veg" && !i.washed)) return "下一步：去水槽洗菜";
+    if (state.cooked.length) return "下一步：点装盘台，把菜装进盘里";
+    if (state.plated.length && !state.carrying) return "下一步：端起菜去餐厅";
+    if (state.carrying) return "下一步：去餐厅放到餐桌";
+    if (state.cooking) return "正在做饭，稍等一下～";
+    return "下一步：点灶台看菜谱，采购材料并做饭";
+  }
+
+  buildKitchenGuide(state) {
+    const hasCookedFlow = !!(state.cooked.length || state.plated.length || state.carrying || state.tableFood?.length);
+    const steps = [
+      {
+        text: "打开灶台菜谱，采购材料并做饭",
+        done: hasCookedFlow || state.cooking,
+      },
+      {
+        text: "蔬菜洗净（若需要）",
+        done: !state.prep.some((i) => i.tag === "veg" && !i.washed),
+      },
+      {
+        text: "把做好的菜装盘/装碗",
+        done: !state.cooked.length && (!!state.plated.length || !!state.carrying || !!state.tableFood?.length),
+      },
+      {
+        text: "端菜去餐厅放到餐桌",
+        done: !!state.tableFood?.length || ["calling", "seating", "eating", "done"].includes(state.mealPhase),
+      },
+      {
+        text: "喊爸爸妈妈来坐下吃饭",
+        done: ["calling", "seating", "eating", "done"].includes(state.mealPhase),
+      },
+    ];
+    const curIdx = steps.findIndex((s) => !s.done);
+    if (curIdx >= 0) steps[curIdx].current = true;
+
+    let action = null;
+    const secondary = [];
+
+    if (state.bag.length) {
+      action = {
+        label: "▶ 把购物袋放进冰箱",
+        onClick: () => {
+          if (putBagInFridge(state)) this.toast("食材放进冰箱啦，打开菜谱继续做饭吧");
+          else this.toast("请先打开冰箱电源");
+        },
+      };
+    } else if (state.prep.some((i) => i.tag === "veg" && !i.washed)) {
+      action = {
+        label: "▶ 去水槽洗菜",
+        onClick: () => {
+          const scene = this.game.scenes.current;
+          if (typeof scene?.walkTo === "function") {
+            scene.walkTo({ x: -2.4, z: -1.5 }, () => {
+              const washed = washPrep(state);
+              this.toast(washed ? "蔬菜洗干净啦！可以开做了" : "操作台没有要洗的蔬菜");
+              this.refresh(state);
+            });
+          } else {
+            const washed = washPrep(state);
+            this.toast(washed ? "蔬菜洗干净啦！" : "没有要洗的蔬菜");
+          }
+        },
+      };
+      secondary.push({ label: "打开灶台菜谱", onClick: () => this.openCookRecipeModal("stove") });
+    } else if (state.cooking) {
+      action = {
+        label: "正在做饭…请稍等",
+        onClick: () => this.toast("锅里还在炒呢～"),
+      };
+    } else if (state.cooked.length) {
+      action = {
+        label: "▶ 装盘 / 装碗",
+        onClick: () => {
+          this.openPlateModal(state);
+          this.toast("选盘子或碗，把做好的菜装好");
+        },
+      };
+      secondary.push({ label: "打开灶台菜谱", onClick: () => this.openCookRecipeModal("stove") });
+    } else if (state.plated.length && !state.carrying) {
+      action = {
+        label: "▶ 端起菜去餐厅",
+        onClick: () => {
+          const item = pickUpPlated(state, 0);
+          if (item) {
+            this.toast(`端起了${item.dish}，去餐厅放到餐桌吧`);
+            this.game.syncCarryVisual();
+            this.game.go("dining");
+          }
+        },
+      };
+    } else if (state.carrying) {
+      action = {
+        label: "▶ 去餐厅放到餐桌",
+        onClick: () => {
+          this.toast("走到餐桌旁，把菜放下");
+          this.game.go("dining");
+        },
+      };
+    } else {
+      action = {
+        label: "▶ 打开灶台菜谱开始做饭",
+        onClick: () => this.openCookRecipeModal("stove"),
+      };
+    }
+
+    return { quest: this.kitchenQuest(state), steps, action, secondary };
   }
 
   diningQuest(state) {
-    if (state.mealPhase === "eating") return "一家人吃饭聊天中，狗狗蹲在桌下～";
+    if (state.mealPhase === "eating") return "一家人坐着吃饭聊天中～";
     if (state.mealPhase === "done") return "吃饱啦！可以回厨房再做一道菜";
-    if (state.mealPhase === "calling" || state.mealPhase === "seating") return "爸爸妈妈正在往餐厅走…";
-    if (state.tableFood.length) return "菜已上桌，喊爸爸妈妈来吃饭吧";
-    if (state.carrying) return "走到餐桌旁把菜放下";
-    return "先去厨房做饭装盘再回来";
+    if (state.mealPhase === "calling" || state.mealPhase === "seating") return "爸爸妈妈正在过来坐下…";
+    if (state.tableFood.length) return "下一步：喊爸爸妈妈来坐下吃饭";
+    if (state.carrying) return "下一步：把菜放到餐桌上";
+    return "先去厨房按引导做饭装盘再回来";
   }
 
   addBtn(parent, label, onClick, cls = "") {
@@ -510,7 +602,19 @@ export class HUD {
 
   openPlateModal(state) {
     const wrap = document.createElement("div");
-    wrap.innerHTML = state.cooked
+    if (!state.cooked.length) {
+      wrap.innerHTML = `<p style="margin:0;line-height:1.5;color:#887078">还没有做好的菜。请先去灶台按菜谱做饭～</p>`;
+      this.openModal("装盘台", wrap, [
+        {
+          label: "去看菜谱",
+          className: "btn-coral",
+          onClick: () => this.openCookRecipeModal("stove"),
+        },
+        { label: "关闭", className: "btn-ghost" },
+      ]);
+      return;
+    }
+    wrap.innerHTML = `<p style="margin:0 0 10px;color:#887078;font-size:13px">把做好的菜装进盘子或碗里，再端去餐厅餐桌。</p>${state.cooked
       .map(
         (d, idx) =>
           `<div style="display:flex;justify-content:space-between;gap:8px;margin:8px 0;align-items:center">
@@ -521,18 +625,19 @@ export class HUD {
             </span>
           </div>`
       )
-      .join("");
+      .join("")}`;
     wrap.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-plate]");
       if (!btn) return;
       const item = plateDish(state, Number(btn.dataset.plate), btn.dataset.v);
       if (item) {
-        this.toast(`${item.dish}已装进${item.vessel === "bowl" ? "碗" : "盘子"}，热气腾腾！`);
+        this.toast(`${item.dish}已装好！点引导「端起菜去餐厅」放到餐桌吧`);
         document.getElementById("modal").hidden = true;
         this.game.scenes.current?.onPlated?.(this.game);
+        this.refresh(state);
       }
     });
-    this.openModal("装盘装碗", wrap, [{ label: "关闭", className: "btn-ghost" }]);
+    this.openModal("装盘台 · 装好菜", wrap, [{ label: "关闭", className: "btn-ghost" }]);
   }
 
   doCheckout(state) {

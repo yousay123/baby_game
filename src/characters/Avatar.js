@@ -130,7 +130,7 @@ export function createPlayerAvatar(state) {
 
   /** 大腿 Group(leg*) → 小腿 Group(calf*) → 鞋，走路可屈膝 */
   const makeLeg = (side) => {
-    const x = side * 0.09;
+    const x = side * 0.06;
     const thigh = new THREE.Group();
     thigh.name = side < 0 ? "legL" : "legR";
     thigh.position.set(x, 0.74, 0);
@@ -696,7 +696,7 @@ export function createNPC(kind) {
   const male = !!preset.male;
 
   const makeNpcLeg = (side) => {
-    const x = side * 0.09;
+    const x = side * 0.06;
     const thigh = new THREE.Group();
     thigh.name = side < 0 ? "legL" : "legR";
     thigh.position.set(x, 0.78, 0);
@@ -840,7 +840,7 @@ export function createNPC(kind) {
   return root;
 }
 
-export function setSitPose(npc, sitting = true) {
+export function setSitPose(npc, sitting = true, opts = {}) {
   if (!npc || npc.userData.kind === "dog") return;
   const legL = npc.getObjectByName("legL");
   const legR = npc.getObjectByName("legR");
@@ -853,51 +853,54 @@ export function setSitPose(npc, sitting = true) {
   const neckMesh = npc.getObjectByName("neck");
   const jeans = npc.getObjectByName("jeans");
   const skirt = npc.getObjectByName("npcSkirt");
+  const seatY = opts.seatY != null ? opts.seatY : 0.48;
 
   npc.userData.sitting = !!sitting;
   npc.userData.pose = sitting ? "sit" : "stand";
 
   if (sitting) {
-    // 腿朝角色前方（-X 旋转）：正旋转会甩到身后
+    // 屁股落在椅面；大腿朝前水平，小腿自然下垂
+    npc.position.y = seatY;
     if (legL) {
-      legL.rotation.x = -Math.PI / 2.15;
-      legL.position.set(-0.09, 0.55, 0.06);
+      legL.rotation.x = -Math.PI / 2.05;
+      legL.position.set(-0.08, 0.1, 0.04);
     }
     if (legR) {
-      legR.rotation.x = -Math.PI / 2.15;
-      legR.position.set(0.09, 0.55, 0.06);
+      legR.rotation.x = -Math.PI / 2.05;
+      legR.position.set(0.08, 0.1, 0.04);
     }
     if (calfL) {
-      calfL.rotation.x = 0.55;
-      calfL.position.set(0, -0.38, 0);
+      calfL.rotation.x = Math.PI / 2.05;
+      calfL.position.set(0, -0.36, 0);
     }
     if (calfR) {
-      calfR.rotation.x = 0.55;
-      calfR.position.set(0, -0.38, 0);
+      calfR.rotation.x = Math.PI / 2.05;
+      calfR.position.set(0, -0.36, 0);
     }
-    if (torso) torso.position.y = 0.86;
-    if (neckMesh) neckMesh.position.y = 1.12;
-    if (headG) headG.position.y = 1.24;
+    if (torso) torso.position.y = 0.42;
+    if (neckMesh) neckMesh.position.y = 0.68;
+    if (headG) headG.position.y = 0.8;
     if (armL) {
-      armL.position.set(-0.24, 0.72, 0.14);
-      armL.rotation.x = -0.35;
-      armL.rotation.z = 0.12;
+      armL.position.set(-0.24, 0.32, 0.12);
+      armL.rotation.x = -0.55;
+      armL.rotation.z = 0.08;
     }
     if (armR) {
-      armR.position.set(0.24, 0.72, 0.14);
-      armR.rotation.x = -0.35;
-      armR.rotation.z = -0.12;
+      armR.position.set(0.24, 0.32, 0.12);
+      armR.rotation.x = -0.55;
+      armR.rotation.z = -0.08;
     }
-    if (jeans) jeans.position.y = 0.42;
-    if (skirt) skirt.position.y = 0.4;
+    if (jeans) jeans.position.y = 0.12;
+    if (skirt) skirt.position.y = 0.08;
   } else {
+    npc.position.y = 0;
     if (legL) {
       legL.rotation.x = 0;
-      legL.position.set(-0.09, 0.78, 0);
+      legL.position.set(-0.07, 0.78, 0);
     }
     if (legR) {
       legR.rotation.x = 0;
-      legR.position.set(0.09, 0.78, 0);
+      legR.position.set(0.07, 0.78, 0);
     }
     if (calfL) {
       calfL.rotation.x = 0;
@@ -925,7 +928,7 @@ export function setSitPose(npc, sitting = true) {
   }
 }
 
-export function setPlayerSit(avatar, sitting = true) {
+export function setPlayerSit(avatar, sitting = true, opts = {}) {
   if (!avatar) return;
   const body = avatar.getObjectByName("body") || avatar;
   const legL = avatar.getObjectByName("legL");
@@ -944,65 +947,49 @@ export function setPlayerSit(avatar, sitting = true) {
   const sleeveR = avatar.getObjectByName("sleeveR");
   const hem = avatar.getObjectByName("hem");
   const bottom = avatar.getObjectByName("bottom");
+  const seatY = opts.seatY != null ? opts.seatY : 0.48;
 
   avatar.userData.sitting = !!sitting;
 
   if (sitting) {
+    avatar.position.y = seatY;
     if (legL) {
-      legL.rotation.x = -Math.PI / 2.2;
-      legL.position.set(-0.09, 0.55, 0.08);
+      legL.rotation.x = -Math.PI / 2.05;
+      legL.position.set(-0.08, 0.1, 0.05);
     }
     if (legR) {
-      legR.rotation.x = -Math.PI / 2.2;
-      legR.position.set(0.09, 0.55, 0.08);
+      legR.rotation.x = -Math.PI / 2.05;
+      legR.position.set(0.08, 0.1, 0.05);
     }
     if (calfL) {
-      calfL.rotation.x = 0.5;
-      calfL.position.set(0, -0.36, 0);
+      calfL.rotation.x = Math.PI / 2.05;
+      calfL.position.set(0, -0.34, 0);
     }
     if (calfR) {
-      calfR.rotation.x = 0.5;
-      calfR.position.set(0, -0.36, 0);
+      calfR.rotation.x = Math.PI / 2.05;
+      calfR.position.set(0, -0.34, 0);
     }
-    if (skirt) skirt.position.y = 0.32;
-    if (hem) hem.position.y = 0.32;
-    if (hips) hips.position.y = 0.7;
-    if (bottom) bottom.position.y = 0.35;
-    if (top) top.position.y = 0.96;
-    if (chest) chest.position.y = 1.0;
-    if (sleeveL) {
-      sleeveL.position.set(-0.26, 1.0, 0);
-    }
-    if (sleeveR) {
-      sleeveR.position.set(0.26, 1.0, 0);
-    }
-    if (neck) neck.position.y = 1.14;
-    if (headG) headG.position.y = 1.24;
+    if (skirt) skirt.position.y = 0.02;
+    if (hem) hem.position.y = 0.02;
+    if (hips) hips.position.y = 0.2;
+    if (bottom) bottom.position.y = 0.08;
+    if (top) top.position.y = 0.42;
+    if (chest) chest.position.y = 0.48;
+    if (sleeveL) sleeveL.position.set(-0.26, 0.46, 0);
+    if (sleeveR) sleeveR.position.set(0.26, 0.46, 0);
+    if (neck) neck.position.y = 0.66;
+    if (headG) headG.position.y = 0.78;
     if (armL) {
-      armL.rotation.x = -0.25;
-      armL.position.set(-0.26, 1.0, 0.1);
+      armL.rotation.x = -0.5;
+      armL.position.set(-0.26, 0.4, 0.1);
     }
     if (armR) {
-      armR.rotation.x = -0.25;
-      armR.position.set(0.26, 1.0, 0.1);
+      armR.rotation.x = -0.5;
+      armR.position.set(0.26, 0.4, 0.1);
     }
   } else {
-    if (legL) {
-      legL.rotation.x = 0;
-      legL.position.set(-0.09, 0.74, 0);
-    }
-    if (legR) {
-      legR.rotation.x = 0;
-      legR.position.set(0.09, 0.74, 0);
-    }
-    if (calfL) {
-      calfL.rotation.x = 0;
-      calfL.position.set(0, -0.36, 0);
-    }
-    if (calfR) {
-      calfR.rotation.x = 0;
-      calfR.position.set(0, -0.36, 0);
-    }
+    avatar.position.y = 0;
+    resetIdleStance(avatar);
     if (skirt) skirt.position.y = 0.5;
     if (hem) hem.position.y = 0.5;
     if (hips) hips.position.y = 1.02;
@@ -1023,6 +1010,40 @@ export function setPlayerSit(avatar, sitting = true) {
     }
   }
   void body;
+}
+
+/** 站立静止：双腿并拢复位 */
+export function resetIdleStance(avatar) {
+  if (!avatar || avatar.userData.sitting) return;
+  const isPlayer = !!avatar.getObjectByName("body");
+  const legL = avatar.getObjectByName("legL");
+  const legR = avatar.getObjectByName("legR");
+  const calfL = avatar.getObjectByName("calfL");
+  const calfR = avatar.getObjectByName("calfR");
+  const armL = avatar.getObjectByName("armL");
+  const armR = avatar.getObjectByName("armR");
+  const hipY = isPlayer ? 0.74 : 0.78;
+  const calfY = isPlayer ? -0.36 : -0.38;
+  if (legL) {
+    legL.rotation.set(0, 0, 0);
+    legL.position.set(-0.06, hipY, 0);
+  }
+  if (legR) {
+    legR.rotation.set(0, 0, 0);
+    legR.position.set(0.06, hipY, 0);
+  }
+  if (calfL) {
+    calfL.rotation.set(0, 0, 0);
+    calfL.position.set(0, calfY, 0);
+  }
+  if (calfR) {
+    calfR.rotation.set(0, 0, 0);
+    calfR.position.set(0, calfY, 0);
+  }
+  if (!avatar.userData.pushingCart) {
+    if (armL) armL.rotation.x = 0;
+    if (armR) armR.rotation.x = 0;
+  }
 }
 
 export function setLiePose(dog, lying = true) {
@@ -1146,18 +1167,13 @@ export function updateWalkAnim(avatar, dt, moving) {
   if (avatar.userData.sitting) return;
 
   if (!moving) {
-    legL.rotation.x = 0;
-    if (legR) legR.rotation.x = 0;
-    if (calfL) calfL.rotation.x = 0;
-    if (calfR) calfR.rotation.x = 0;
-    if (!pushing) {
-      if (armL) armL.rotation.x = 0;
-      if (armR) armR.rotation.x = 0;
-    } else {
+    resetIdleStance(avatar);
+    if (pushing) {
       if (armL) armL.rotation.x = -0.75;
       if (armR) armR.rotation.x = -0.75;
     }
     avatar.userData.walking = false;
+    avatar.userData.phase = 0;
     return;
   }
 

@@ -672,13 +672,13 @@ export class HomeScene extends BaseScene {
     this.sofaSeat = { x: 0, z: 1.75, yaw: Math.PI };
 
     this.dad = createNPC("dad");
-    this.dad.position.set(-0.65, 0.38, 1.85);
+    this.dad.position.set(-0.65, 0, 1.85);
     this.dad.rotation.y = Math.PI;
-    setSitPose(this.dad, true);
+    setSitPose(this.dad, true, { seatY: 0.48 });
     this.mom = createNPC("mom");
-    this.mom.position.set(0.65, 0.38, 1.85);
+    this.mom.position.set(0.65, 0, 1.85);
     this.mom.rotation.y = Math.PI;
-    setSitPose(this.mom, true);
+    setSitPose(this.mom, true, { seatY: 0.48 });
     this.dog = createNPC("dog");
     this.dog.position.set(1.7, 0, 2.5);
     this.dog.rotation.y = -Math.PI * 0.6;
@@ -837,7 +837,7 @@ export class HomeScene extends BaseScene {
                   if (!game.player) return;
                   game.player.position.set(seat.x, 0, seat.z);
                   game.player.rotation.y = seat.yaw;
-                  setPlayerSit(game.player, true);
+                  setPlayerSit(game.player, true, { seatY: d.key === "sofa" ? 0.48 : 0.42 });
                   game.toast(d.key === "sofa" ? "坐在沙发上好舒服～" : "坐在小凳子上休息～");
                   if (game.fp) game.fp.syncCamera(game.player, this.roomBounds);
                 });
