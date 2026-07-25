@@ -36,15 +36,15 @@ export function sphere(r, color, opts) {
   return mesh;
 }
 
-/** Simple room: floor + 3 walls (open front for camera) */
+/** Dollhouse cutaway room: floor + back wall + rear side walls. NO ceiling (so camera can see in). */
 export function buildRoom({
   width = 12,
   depth = 10,
-  height = 4,
+  height = 2.8,
   floorColor = COLORS.floor,
   wallColor = COLORS.wall,
   accent = 0xffe0ea,
-  withCeiling = true,
+  withCeiling = false,
   style = "home",
 } = {}) {
   const root = new THREE.Group();
@@ -56,7 +56,6 @@ export function buildRoom({
   floor.userData.walkable = true;
   root.add(floor);
 
-  // wood plank overlay for home
   if (style === "home" || style === "dining") {
     const plankW = 0.6;
     const n = Math.ceil(width / plankW);
@@ -68,7 +67,6 @@ export function buildRoom({
     }
   }
   if (style === "market") {
-    // tile grid hint
     for (let i = 0; i < 6; i++) {
       const line = box(width, 0.01, 0.02, 0xc8c0b8);
       line.position.set(0, 0.08, -depth / 2 + 1 + i * 1.5);
@@ -76,57 +74,73 @@ export function buildRoom({
     }
   }
   if (style === "kitchen") {
-    // checker tiles
     const tile = 0.5;
     for (let xi = 0; xi < width / tile; xi++) {
       for (let zi = 0; zi < depth / tile; zi++) {
         if ((xi + zi) % 2 === 0) continue;
         const t = box(tile - 0.02, 0.015, tile - 0.02, 0xe8eef4);
-        t.position.set(-width / 2 + tile / 2 + xi * tile, 0.08, -depth / 2 + tile / 2 + zi * tile);
+        t.position.set(
+          -width / 2 + tile / 2 + xi * tile,
+          0.08,
+          -depth / 2 + tile / 2 + zi * tile
+        );
         root.add(t);
       }
     }
   }
 
+  // Back wall only (stage backdrop)
   const back = box(width, height, 0.16, wallColor);
   back.position.set(0, height / 2, -depth / 2);
   root.add(back);
 
-  // wall accent stripe
-  const stripe = box(width - 0.3, 0.5, 0.04, accent);
-  stripe.position.set(0, 1.0, -depth / 2 + 0.1);
+  const stripe = box(width - 0.3, 0.4, 0.04, accent);
+  stripe.position.set(0, 0.9, -depth / 2 + 0.1);
   root.add(stripe);
 
-  const left = box(0.16, height, depth, wallColor);
-  left.position.set(-width / 2, height / 2, 0);
+  // Side walls: only rear 55% so front stays open for the camera
+  const sideDepth = depth * 0.55;
+  const sideZ = -depth / 2 + sideDepth / 2;
+  const left = box(0.14, height, sideDepth, wallColor);
+  left.position.set(-width / 2, height / 2, sideZ);
   root.add(left);
-
-  const right = box(0.16, height, depth, wallColor);
-  right.position.set(width / 2, height / 2, 0);
+  const right = box(0.14, height, sideDepth, wallColor);
+  right.position.set(width / 2, height / 2, sideZ);
   root.add(right);
 
-  const base = box(width, 0.22, 0.1, 0xd8c0b0);
-  base.position.set(0, 0.2, -depth / 2 + 0.12);
+  const base = box(width, 0.18, 0.1, 0xd8c0b0);
+  base.position.set(0, 0.16, -depth / 2 + 0.12);
   root.add(base);
 
+  // Ceiling intentionally omitted — dollhouse view must stay open
   if (withCeiling) {
-    const ceil = box(width, 0.1, depth, 0xfff8f2, { roughness: 0.95 });
-    ceil.position.y = height;
-    root.add(ceil);
+    // If ever needed: only a shallow rear soffit, never a full slab
+    const soffit = box(width, 0.08, depth * 0.25, 0xfff8f2, { roughness: 0.95 });
+    soffit.position.set(0, height + 0.04, -depth / 2 + depth * 0.125);
+    root.add(soffit);
   }
 
-  // back wall frames
   if (style === "home" || style === "dining") {
     [-2.4, 0, 2.4].forEach((x, i) => {
-      const frame = box(0.75, 0.6, 0.05, 0xc9a06a);
-      frame.position.set(x, 2.4, -depth / 2 + 0.12);
-      const pic = box(0.58, 0.42, 0.02, [0xffb0c8, 0x7ec8ff, 0xffe08a][i]);
-      pic.position.set(x, 2.4, -depth / 2 + 0.16);
+      const frame = box(0.75, 0.55, 0.05, 0xc9a06a);
+      frame.position.set(x, Math.min(2.15, height - 0.5), -depth / 2 + 0.12);
+      const pic = box(0.58, 0.4, 0.02, [0xffb0c8, 0x7ec8ff, 0xffe08a][i]);
+      pic.position.set(x, Math.min(2.15, height - 0.5), -depth / 2 + 0.16);
       root.add(frame, pic);
     });
   }
 
   return root;
+}
+
+/** High dollhouse camera — sees whole floor without wall/ceiling occlusion */
+export function setPlayCamera(camera, { y = 13, z = 11, lookY = 0, lookZ = -0.5, fov = 38 } = {}) {
+  camera.fov = fov;
+  camera.near = 0.1;
+  camera.far = 80;
+  camera.position.set(0, y, z);
+  camera.lookAt(0, lookY, lookZ);
+  camera.updateProjectionMatrix();
 }
 
 function darken(hex, amount) {
@@ -155,7 +169,7 @@ export function addWarmLights(scene, { intensity = 1 } = {}) {
   return { hemi, dir, fill };
 }
 
-export function makeLabelSprite(text, { color = "#fff", bg = "rgba(40,16,28,0.75)" } = {}) {
+export function makeLabelSprite(text, { color = "#fff", bg = "rgba(40,16,28,0.78)" } = {}) {
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 64;
@@ -169,10 +183,16 @@ export function makeLabelSprite(text, { color = "#fff", bg = "rgba(40,16,28,0.75
   ctx.textBaseline = "middle";
   ctx.fillText(text, 128, 34);
   const tex = new THREE.CanvasTexture(canvas);
-  const matSprite = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const matSprite = new THREE.SpriteMaterial({
+    map: tex,
+    transparent: true,
+    depthTest: true,
+    depthWrite: false,
+  });
   const sprite = new THREE.Sprite(matSprite);
-  sprite.scale.set(1.6, 0.4, 1);
-  sprite.position.y = 2.2;
+  sprite.scale.set(1.35, 0.34, 1);
+  sprite.position.y = 1.55;
+  sprite.center.set(0.5, 0);
   return sprite;
 }
 

@@ -56,12 +56,12 @@ export function createRenderer(canvas) {
 
 export function createCamera() {
   const camera = new THREE.PerspectiveCamera(
-    42,
+    38,
     window.innerWidth / window.innerHeight,
     0.1,
-    100
+    80
   );
-  camera.position.set(0, 7.5, 10);
-  camera.lookAt(0, 0.5, 0);
+  camera.position.set(0, 13, 11);
+  camera.lookAt(0, 0, -0.5);
   return camera;
 }

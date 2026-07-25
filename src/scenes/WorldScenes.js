@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { buildRoom, addWarmLights, box, makeInteractable, makeLabelSprite } from "../core/builders.js";
+import { buildRoom, addWarmLights, box, makeInteractable, makeLabelSprite, setPlayCamera } from "../core/builders.js";
 import { COLORS, MARKET_GOODS } from "../core/constants.js";
 import {
   createPlayerAvatar,
@@ -51,16 +51,21 @@ export class BaseScene {
   setupCommon(game, roomOpts) {
     this.threeScene.clear();
     this.steams = [];
-    this.threeScene.background = new THREE.Color(roomOpts.bg || 0x2a1824);
-    this.threeScene.fog = new THREE.Fog(roomOpts.bg || 0x2a1824, 16, 32);
-    addWarmLights(this.threeScene, { intensity: roomOpts.lightIntensity || 1 });
-    const room = buildRoom(roomOpts);
+    this.threeScene.background = new THREE.Color(roomOpts.bg || 0x1a1520);
+    // Soft fog only — don't hide the play area
+    this.threeScene.fog = new THREE.Fog(roomOpts.bg || 0x1a1520, 28, 48);
+    addWarmLights(this.threeScene, { intensity: roomOpts.lightIntensity || 1.15 });
+    const room = buildRoom({
+      height: 2.6,
+      withCeiling: false,
+      ...roomOpts,
+    });
     this.threeScene.add(room);
     this.floor = room.getObjectByName("floor");
 
     this.player = createPlayerAvatar(game.state);
     applyMakeup(this.player, game.state);
-    this.player.position.set(0, 0, 3);
+    this.player.position.set(0, 0, 2.5);
     this.threeScene.add(this.player);
     game.player = this.player;
     game.syncCarryVisual();
@@ -120,16 +125,17 @@ export class BaseScene {
   }
 
   makeDoor(to, label, x, z, color = COLORS.wood) {
-    const door = box(1.15, 2.3, 0.18, color);
-    door.position.set(x, 1.15, z);
-    const panel = box(0.9, 1.8, 0.04, darkenDoor(color));
-    panel.position.set(x, 1.15, z + 0.08);
-    const knob = box(0.06, 0.06, 0.06, 0xe8d080);
-    knob.position.set(x + 0.4, 1.1, z + 0.14);
+    const door = box(1.05, 2.0, 0.14, color);
+    door.position.set(x, 1.0, z);
+    const panel = box(0.82, 1.55, 0.04, darkenDoor(color));
+    panel.position.set(x, 1.0, z + 0.06);
+    const knob = box(0.05, 0.05, 0.05, 0xe8d080);
+    knob.position.set(x + 0.35, 0.95, z + 0.1);
     makeInteractable(door, { type: "door", to });
     makeInteractable(panel, { type: "door", to });
     const spr = makeLabelSprite(label);
-    spr.position.set(x, 2.55, z);
+    spr.position.set(x, 0, z + 0.2);
+    spr.position.y = 2.15;
     this.threeScene.add(door, panel, knob, spr);
     return door;
   }
@@ -185,8 +191,7 @@ export class MakeupScene extends BaseScene {
     this.threeScene.add(wardrobe);
 
     this.player.position.set(0, 0, 0.8);
-    game.camera.position.set(0, 3.4, 5.8);
-    game.camera.lookAt(0, 1.2, -1);
+    setPlayCamera(game.camera, { y: 8, z: 7.5, lookY: 0.8, lookZ: -1.2, fov: 40 });
   }
 }
 
@@ -208,52 +213,57 @@ export class MarketScene extends BaseScene {
     });
     this.walkHalfW = 6;
     this.walkHalfD = 5;
-    game.camera.position.set(0, 9.5, 12.5);
-    game.camera.lookAt(0, 0.2, -1);
+    setPlayCamera(game.camera, { y: 14, z: 12, lookY: 0, lookZ: -1, fov: 36 });
 
+    // Rear cold cases — keep on back wall, fully visible without ceiling
     for (let i = 0; i < 5; i++) {
-      const fridge = box(2.2, 2.0, 0.7, 0xe8f4ff, { metalness: 0.2, roughness: 0.35 });
-      fridge.position.set(-5 + i * 2.5, 1.1, -5.2);
-      const glass = box(2.0, 1.6, 0.05, 0xa8d8ff, { transparent: true, opacity: 0.45 });
-      glass.position.set(-5 + i * 2.5, 1.2, -4.85);
+      const fridge = box(2.2, 1.9, 0.65, 0xe8f4ff, { metalness: 0.2, roughness: 0.35 });
+      fridge.position.set(-5 + i * 2.5, 0.95, -5.0);
+      const glass = box(2.0, 1.5, 0.05, 0xa8d8ff, { transparent: true, opacity: 0.45 });
+      glass.position.set(-5 + i * 2.5, 1.05, -4.65);
       this.threeScene.add(fridge, glass);
     }
 
     const labels = { veg: "蔬菜", drinks: "饮料", daily: "粮油", snack: "零食" };
     Object.keys(MARKET_GOODS).forEach((cat, i) => {
       const shelf = createMarketShelf(cat, labels[cat] || cat);
-      shelf.position.set(-4.5 + i * 3.0, 0, -3.2);
+      // Pull shelves forward into open play area
+      shelf.position.set(-4.5 + i * 3.0, 0, -2.2);
       makeInteractable(shelf, { type: "shelf", cat });
       this.threeScene.add(shelf);
     });
 
     const cartPad = box(2.2, 0.05, 1.8, 0x3b82c4);
-    cartPad.position.set(-5, 0.1, 3.5);
+    cartPad.position.set(-5, 0.1, 3.2);
     makeInteractable(cartPad, { type: "carts" });
     const cart1 = createShoppingCart();
-    cart1.position.set(-5.4, 0, 3.3);
+    cart1.position.set(-5.4, 0, 3.0);
     const cart2 = createShoppingCart();
-    cart2.position.set(-4.6, 0, 3.7);
+    cart2.position.set(-4.6, 0, 3.4);
     cart2.rotation.y = 0.3;
     const cartLabel = makeLabelSprite("购物车");
-    cartLabel.position.set(-5, 1.5, 3.5);
+    cartLabel.position.set(-5, 0, 3.2);
+    cartLabel.position.y = 1.2;
     this.threeScene.add(cartPad, cart1, cart2, cartLabel);
 
     const checkout = createCheckoutCounter();
-    checkout.position.set(5, 0, 3.2);
+    checkout.position.set(5, 0, 2.8);
     makeInteractable(checkout, { type: "checkout" });
     const checkLabel = makeLabelSprite("收银台");
-    checkLabel.position.set(5, 2.2, 3.2);
+    checkLabel.position.set(5, 0, 2.8);
+    checkLabel.position.y = 1.8;
     this.threeScene.add(checkout, checkLabel);
 
     const exit = createAutoDoor();
-    exit.position.set(6.2, 0, -0.5);
+    exit.position.set(5.8, 0, -0.2);
+    exit.scale.set(0.85, 0.85, 0.85);
     makeInteractable(exit, { type: "exitHome" });
     const exitLabel = makeLabelSprite("出口回家");
-    exitLabel.position.set(6.2, 2.7, -0.5);
-    this.threeScene.add(exit, exitLabel, createPlant(5.5, -3));
+    exitLabel.position.set(5.8, 0, -0.2);
+    exitLabel.position.y = 2.1;
+    this.threeScene.add(exit, exitLabel, createPlant(5.2, -3.2));
 
-    this.player.position.set(-4, 0, 4);
+    this.player.position.set(-3.5, 0, 3.5);
   }
 
   onInteract(game, interactive) {
@@ -320,88 +330,89 @@ export class HomeScene extends BaseScene {
     });
     this.walkHalfW = 5;
     this.walkHalfD = 4;
-    game.camera.position.set(0, 8.2, 11.2);
-    game.camera.lookAt(0, 0.5, 0);
+    setPlayCamera(game.camera, { y: 13, z: 11, lookY: 0, lookZ: -0.3, fov: 36 });
 
-    this.threeScene.add(createWindow(0, 2.3, -4.85));
+    this.threeScene.add(createWindow(0, 1.7, -4.85));
 
     const rug = createRug();
     rug.position.set(-0.5, 0, 0.8);
     this.threeScene.add(rug);
 
     const sofa = createSofa();
-    sofa.position.set(-2.2, 0, 1.2);
-    sofa.rotation.y = 0.15;
+    sofa.position.set(-2.2, 0, 1.0);
+    sofa.rotation.y = 0.1;
     makeInteractable(sofa, { type: "furn", key: "sofa" });
     this.threeScene.add(sofa);
 
     const table = createCoffeeTable();
-    table.position.set(-1.5, 0, 2.4);
+    table.position.set(-1.5, 0, 2.2);
     makeInteractable(table, { type: "furn", key: "table" });
     this.threeScene.add(table);
 
     const side = createSideTable();
-    side.position.set(-4.2, 0, 0.8);
+    side.position.set(-4.0, 0, 0.6);
     this.threeScene.add(side);
 
     const tvStand = createTVStand();
-    tvStand.position.set(3.6, 0, -3.6);
+    tvStand.position.set(3.4, 0, -3.4);
     makeInteractable(tvStand, { type: "furn", key: "tv" });
     this.tvScreen = tvStand.userData.screen;
     this.threeScene.add(tvStand);
 
     const lamp = createFloorLamp();
-    lamp.position.set(-4.6, 0, -2.2);
+    lamp.position.set(-4.4, 0, -2.0);
     makeInteractable(lamp, { type: "furn", key: "lamp" });
     this.lampMesh = lamp;
     this.lampGlow = new THREE.PointLight(0xffe0a0, 0, 5);
-    this.lampGlow.position.set(-4.6, 1.6, -2.2);
+    this.lampGlow.position.set(-4.4, 1.6, -2.0);
     this.threeScene.add(lamp, this.lampGlow);
 
     const shelf = createBookshelf();
-    shelf.position.set(-4.8, 0, -3.5);
+    shelf.position.set(-4.6, 0, -3.3);
+    shelf.scale.set(0.9, 0.85, 0.9);
     makeInteractable(shelf, { type: "furn", key: "shelf" });
     this.threeScene.add(shelf);
 
-    const plant = createPlant(5, -3.2);
+    const plant = createPlant(4.6, -3.0);
     makeInteractable(plant, { type: "furn", key: "plant" });
     this.threeScene.add(plant);
 
     const dogbed = createDogBed();
-    dogbed.position.set(1.2, 0, 2.8);
+    dogbed.position.set(1.2, 0, 2.6);
     makeInteractable(dogbed, { type: "furn", key: "dogbed" });
     this.threeScene.add(dogbed);
 
     const ac = createAC();
-    ac.position.set(2.5, 3.3, -4.7);
+    ac.position.set(2.2, 2.35, -4.7);
     makeInteractable(ac, { type: "furn", key: "ac" });
     this.acMesh = ac;
     this.threeScene.add(ac);
 
+    // Hanging light without ceiling slab
     const ceilLamp = createCeilingLamp();
-    ceilLamp.position.set(0, 3.85, 0);
+    ceilLamp.position.set(0, 2.7, 0.2);
     makeInteractable(ceilLamp, { type: "furn", key: "light" });
     this.ceilLampMesh = ceilLamp;
-    this.ceilLight = new THREE.PointLight(0xfff0e0, 0.85, 14);
-    this.ceilLight.position.set(0, 3.5, 0);
+    this.ceilLight = new THREE.PointLight(0xfff0e0, 0.95, 16);
+    this.ceilLight.position.set(0, 2.5, 0.2);
     this.threeScene.add(ceilLamp, this.ceilLight);
 
-    this.makeDoor("kitchen", "厨房", -5.4, -1, 0x8a5a38);
-    this.makeDoor("dining", "餐厅", 5.4, -1, 0xc48a5a);
-    this.makeDoor("market", "出门", 0, 4.6, 0x88b0d0);
+    this.makeDoor("kitchen", "厨房", -5.2, -0.8, 0x8a5a38);
+    this.makeDoor("dining", "餐厅", 5.2, -0.8, 0xc48a5a);
+    this.makeDoor("market", "出门", 0, 4.4, 0x88b0d0);
 
     this.dad = createNPC("dad");
-    this.dad.position.set(1.5, 0, -1);
+    this.dad.position.set(1.2, 0, -0.6);
     this.mom = createNPC("mom");
-    this.mom.position.set(2.4, 0, -0.4);
+    this.mom.position.set(2.2, 0, 0);
     this.dog = createNPC("dog");
-    this.dog.position.set(1.2, 0, 2.5);
+    this.dog.position.set(1.0, 0, 2.3);
     makeInteractable(this.dad, { type: "npc", key: "dad" });
     makeInteractable(this.mom, { type: "npc", key: "mom" });
     makeInteractable(this.dog, { type: "npc", key: "dog" });
     this.threeScene.add(this.dad, this.mom, this.dog);
 
-    this.player.position.set(0, 0, 3);
+    this.player.position.set(0, 0, 2.8);
     this.applyPowerVisuals(game.state);
   }
 

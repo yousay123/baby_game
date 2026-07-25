@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { box, makeInteractable, makeLabelSprite } from "../core/builders.js";
+import { box, makeInteractable, makeLabelSprite, setPlayCamera } from "../core/builders.js";
 import { COLORS } from "../core/constants.js";
 import {
   createNPC,
@@ -24,7 +24,6 @@ import {
   createDiningTable,
   createDiningChair,
   createPlant,
-  createCeilingLamp,
   createWindow,
 } from "../core/props.js";
 
@@ -45,117 +44,118 @@ export class KitchenScene extends BaseScene {
     });
     this.walkHalfW = 5;
     this.walkHalfD = 3.5;
-    game.camera.position.set(0, 8.5, 10);
-    game.camera.lookAt(0, 0.5, -1);
+    setPlayCamera(game.camera, { y: 13, z: 10.5, lookY: 0, lookZ: -0.8, fov: 36 });
 
-    // backsplash
-    const splash = box(8.5, 0.9, 0.08, 0xe8f4ff);
-    splash.position.set(0.3, 1.55, -3.0);
+    // backsplash along rear counter line
+    const splash = box(8.5, 0.75, 0.08, 0xe8f4ff);
+    splash.position.set(0.3, 1.45, -2.85);
     this.threeScene.add(splash);
 
     const counter = createKitchenCounter(8);
-    counter.position.set(0.3, 0, -2.55);
+    counter.position.set(0.3, 0, -2.35);
     this.threeScene.add(counter);
 
     const uppers = createUpperCabinets(5.5);
-    uppers.position.set(0.8, 0, -2.7);
+    uppers.position.set(0.8, -0.35, -2.55);
+    uppers.scale.set(1, 0.85, 1);
     this.threeScene.add(uppers);
 
     this.fridge = createFridge();
-    this.fridge.position.set(-4.6, 0, -2.3);
+    this.fridge.position.set(-4.5, 0, -2.1);
+    this.fridge.scale.set(0.95, 0.9, 0.95);
     makeInteractable(this.fridge, { type: "appliance", key: "fridge" });
     const fridgeLabel = makeLabelSprite("冰箱");
-    fridgeLabel.position.set(-4.6, 2.6, -2.3);
+    fridgeLabel.position.set(-4.5, 0, -2.1);
+    fridgeLabel.position.y = 2.35;
     this.threeScene.add(this.fridge, fridgeLabel);
 
     const sink = createSinkUnit();
-    sink.position.set(-2.0, 0, -2.4);
+    sink.position.set(-2.0, 0, -2.2);
     makeInteractable(sink, { type: "sink" });
     const sinkLabel = makeLabelSprite("洗菜池");
-    sinkLabel.position.set(-2.0, 1.8, -2.4);
+    sinkLabel.position.set(-2.0, 0, -2.2);
+    sinkLabel.position.y = 1.55;
     this.threeScene.add(sink, sinkLabel);
 
     this.stove = createStove();
-    this.stove.position.set(0.3, 0, -2.4);
+    this.stove.position.set(0.3, 0, -2.2);
     makeInteractable(this.stove, { type: "cook", cook: "stirfry", power: "stove" });
     const stoveLabel = makeLabelSprite("燃气灶");
-    stoveLabel.position.set(0.3, 1.85, -2.4);
+    stoveLabel.position.set(0.3, 0, -2.2);
+    stoveLabel.position.y = 1.55;
     this.threeScene.add(this.stove, stoveLabel);
 
     const hood = createHood();
-    hood.position.set(0.3, 2.35, -2.5);
+    hood.position.set(0.3, 2.05, -2.35);
     makeInteractable(hood, { type: "appliance", key: "hood" });
     this.hood = hood;
     this.threeScene.add(hood);
 
     const rice = createRiceCooker();
-    rice.position.set(2.0, 0, -2.35);
+    rice.position.set(2.0, 0, -2.15);
     makeInteractable(rice, { type: "cook", cook: "rice", power: "rice" });
     const riceLabel = makeLabelSprite("电饭煲");
-    riceLabel.position.set(2.0, 1.85, -2.35);
+    riceLabel.position.set(2.0, 0, -2.15);
+    riceLabel.position.y = 1.55;
     this.threeScene.add(rice, riceLabel);
 
     this.oven = createOven();
-    this.oven.position.set(3.6, 0, -2.2);
+    this.oven.position.set(3.5, 0, -2.0);
     makeInteractable(this.oven, { type: "cook", cook: "bread", power: "oven" });
     const ovenLabel = makeLabelSprite("烤箱");
-    ovenLabel.position.set(3.6, 1.4, -2.2);
+    ovenLabel.position.set(3.5, 0, -2.0);
+    ovenLabel.position.y = 1.25;
     this.threeScene.add(this.oven, ovenLabel);
 
     const pot = box(0.45, 0.35, 0.45, 0xc0c8d0, { metalness: 0.4, roughness: 0.35 });
-    pot.position.set(1.15, 1.2, -2.15);
+    pot.position.set(1.15, 1.2, -1.95);
     makeInteractable(pot, { type: "cook", cook: "porridge", power: "stove" });
     const potLabel = makeLabelSprite("汤锅");
-    potLabel.position.set(1.15, 1.7, -2.15);
+    potLabel.position.set(1.15, 0, -1.95);
+    potLabel.position.y = 1.55;
     this.threeScene.add(pot, potLabel);
 
     const mw = createMicrowave();
-    mw.position.set(4.6, 1.35, -2.4);
+    mw.position.set(4.5, 1.25, -2.2);
     makeInteractable(mw, { type: "appliance", key: "microwave" });
     this.mw = mw;
     this.threeScene.add(mw);
 
     const dw = createDishwasher();
-    dw.position.set(-2.0, 0, -2.3);
-    // sink already there - put dishwasher slightly forward under counter area
-    dw.position.set(4.6, 0, 0.8);
+    dw.position.set(4.4, 0, 0.6);
     makeInteractable(dw, { type: "appliance", key: "dishwasher" });
     const dwLabel = makeLabelSprite("洗碗机");
-    dwLabel.position.set(4.6, 1.2, 0.8);
+    dwLabel.position.set(4.4, 0, 0.6);
+    dwLabel.position.y = 1.15;
     this.threeScene.add(dw, dwLabel);
 
-    // plating station
     const plateStation = box(1.3, 0.95, 0.75, COLORS.wood);
-    plateStation.position.set(4.5, 0.48, 2.0);
+    plateStation.position.set(4.3, 0.48, 2.0);
     const plateTop = box(1.35, 0.08, 0.8, 0xe8d8c0);
-    plateTop.position.set(4.5, 0.98, 2.0);
+    plateTop.position.set(4.3, 0.98, 2.0);
     makeInteractable(plateStation, { type: "plateStation" });
     makeInteractable(plateTop, { type: "plateStation" });
     const plateLabel = makeLabelSprite("装盘台");
-    plateLabel.position.set(4.5, 1.7, 2.0);
+    plateLabel.position.set(4.3, 0, 2.0);
+    plateLabel.position.y = 1.45;
     this.threeScene.add(plateStation, plateTop, plateLabel);
 
-    // empty plates decoration
     const emptyPlate = createPlateOrBowl("plate", null);
-    emptyPlate.position.set(4.2, 1.05, 2.1);
+    emptyPlate.position.set(4.0, 1.05, 2.1);
     emptyPlate.scale.setScalar(0.7);
     const emptyBowl = createPlateOrBowl("bowl", null);
-    emptyBowl.position.set(4.7, 1.05, 1.9);
+    emptyBowl.position.set(4.5, 1.05, 1.9);
     emptyBowl.scale.setScalar(0.7);
     this.threeScene.add(emptyPlate, emptyBowl);
 
-    this.makeDoor("dining", "餐厅", 5.4, 2.5, 0xc48a5a);
-    this.makeDoor("home", "客厅", -5.4, 2.5, 0x8a5a38);
+    this.makeDoor("dining", "餐厅", 5.2, 2.4, 0xc48a5a);
+    this.makeDoor("home", "客厅", -5.2, 2.4, 0x8a5a38);
 
     this.platedGroup = new THREE.Group();
-    this.platedGroup.position.set(4.5, 1.08, 2.0);
+    this.platedGroup.position.set(4.3, 1.08, 2.0);
     this.threeScene.add(this.platedGroup);
 
-    const ceil = createCeilingLamp();
-    ceil.position.set(0, 3.85, 0);
-    this.threeScene.add(ceil);
-
-    this.player.position.set(-1, 0, 2.5);
+    this.player.position.set(-1, 0, 2.2);
     this.refreshPlatedVisuals(game);
     this.applyPower(game.state);
   }
@@ -275,67 +275,63 @@ export class DiningScene extends BaseScene {
     });
     this.walkHalfW = 4.5;
     this.walkHalfD = 4;
-    game.camera.position.set(0, 8.2, 11);
-    game.camera.lookAt(0, 0.4, -0.5);
+    setPlayCamera(game.camera, { y: 13, z: 11, lookY: 0, lookZ: -0.4, fov: 36 });
     this.familyMoving = [];
 
-    this.threeScene.add(createWindow(-2.5, 2.3, -4.85));
-    this.threeScene.add(createWindow(2.5, 2.3, -4.85));
+    this.threeScene.add(createWindow(-2.5, 1.7, -4.85));
+    this.threeScene.add(createWindow(2.5, 1.7, -4.85));
 
-    const ceil = createCeilingLamp();
-    ceil.position.set(0, 3.85, -0.5);
-    this.threeScene.add(ceil);
-    const roomLight = new THREE.PointLight(0xffe8d0, 0.7, 12);
-    roomLight.position.set(0, 3.2, 0);
+    const roomLight = new THREE.PointLight(0xffe8d0, 0.85, 14);
+    roomLight.position.set(0, 2.8, 0);
     this.threeScene.add(roomLight);
 
     this.table = createDiningTable();
-    this.table.position.set(0, 0, -0.5);
+    this.table.position.set(0, 0, -0.2);
     makeInteractable(this.table, { type: "table" });
     const tableLabel = makeLabelSprite("餐桌");
-    tableLabel.position.set(0, 2.0, -0.5);
+    tableLabel.position.set(0, 0, -0.2);
+    tableLabel.position.y = 1.55;
     this.threeScene.add(this.table, tableLabel);
 
     this.chairDad = createDiningChair();
-    this.chairDad.position.set(-1.7, 0, -0.5);
+    this.chairDad.position.set(-1.7, 0, -0.2);
     this.chairDad.rotation.y = Math.PI / 2;
     this.chairMom = createDiningChair();
-    this.chairMom.position.set(1.7, 0, -0.5);
+    this.chairMom.position.set(1.7, 0, -0.2);
     this.chairMom.rotation.y = -Math.PI / 2;
     this.chairGirl = createDiningChair();
-    this.chairGirl.position.set(0, 0, 1.0);
+    this.chairGirl.position.set(0, 0, 1.15);
     this.threeScene.add(this.chairDad, this.chairMom, this.chairGirl);
 
     this.foodRoot = new THREE.Group();
-    this.foodRoot.position.set(0, 0.98, -0.5);
+    this.foodRoot.position.set(0, 0.98, -0.2);
     this.threeScene.add(this.foodRoot);
 
-    // sideboard
-    const sideboard = box(2.2, 0.9, 0.5, COLORS.wood);
-    sideboard.position.set(-3.8, 0.45, -3.8);
+    const sideboard = box(2.2, 0.85, 0.5, COLORS.wood);
+    sideboard.position.set(-3.6, 0.42, -3.5);
     const vase = box(0.15, 0.35, 0.15, 0xffffff);
-    vase.position.set(-3.8, 1.1, -3.8);
-    this.threeScene.add(sideboard, vase, createPlant(4.2, -3.5));
+    vase.position.set(-3.6, 1.05, -3.5);
+    this.threeScene.add(sideboard, vase, createPlant(4.0, -3.2));
 
     this.dad = createNPC("dad");
-    this.dad.position.set(-3.5, 0, 2.5);
+    this.dad.position.set(-3.2, 0, 2.2);
     this.mom = createNPC("mom");
-    this.mom.position.set(3.5, 0, 2.5);
+    this.mom.position.set(3.2, 0, 2.2);
     this.dog = createNPC("dog");
-    this.dog.position.set(2.5, 0, 2);
+    this.dog.position.set(2.2, 0, 1.8);
     this.threeScene.add(this.dad, this.mom, this.dog);
 
     this.makeDoor("kitchen", "厨房", -5.0, 1.5, 0xd0d8e0);
     this.makeDoor("home", "客厅", 5.0, 1.5, COLORS.wood);
 
     this.anchors = {
-      dadSeat: { x: -1.55, z: -0.5 },
-      momSeat: { x: 1.55, z: -0.5 },
-      dogUnder: { x: 0, z: -0.55 },
-      tableFront: { x: 0, z: 1.2 },
+      dadSeat: { x: -1.55, z: -0.2 },
+      momSeat: { x: 1.55, z: -0.2 },
+      dogUnder: { x: 0, z: -0.25 },
+      tableFront: { x: 0, z: 1.3 },
     };
 
-    this.player.position.set(0, 0, 3.2);
+    this.player.position.set(0, 0, 2.8);
     this.refreshTableFood(game);
 
     if (game.state.mealPhase === "calling" || game.state.mealPhase === "seating") {
