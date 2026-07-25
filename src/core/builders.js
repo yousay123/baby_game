@@ -474,18 +474,21 @@ export function addRoomDressing(root, { width, depth, height, style, accent = 0x
 
 export function makeLabelSprite(text, { color = "#fff", bg = "rgba(40,16,28,0.78)", scaleX = 0.62, scaleY = 0.16, fontSize = 28 } = {}) {
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 64;
+  const big = fontSize >= 36;
+  canvas.width = big ? 384 : 256;
+  canvas.height = big ? 96 : 64;
   const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, 256, 64);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = bg;
-  roundRect(ctx, 8, 10, 240, 44, 16);
+  const padX = big ? 12 : 8;
+  const padY = big ? 16 : 10;
+  roundRect(ctx, padX, padY, canvas.width - padX * 2, canvas.height - padY * 2, big ? 20 : 16);
   ctx.fill();
   ctx.fillStyle = color;
   ctx.font = `bold ${fontSize}px Microsoft YaHei, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(text, 128, 34);
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 1);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   const matSprite = new THREE.SpriteMaterial({
@@ -499,7 +502,7 @@ export function makeLabelSprite(text, { color = "#fff", bg = "rgba(40,16,28,0.78
   sprite.scale.set(scaleX, scaleY, 1);
   sprite.center.set(0.5, 0.5);
   sprite.renderOrder = 2;
-  sprite.userData.isNameTag = true;
+  sprite.userData.isLabelTag = true;
   return sprite;
 }
 

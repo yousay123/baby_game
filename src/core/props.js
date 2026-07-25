@@ -654,9 +654,9 @@ export function createMarketShelf(cat, label, { doubleSided = true } = {}) {
     const title = label || ({ veg: "蔬菜", drinks: "饮料", daily: "粮油", snack: "零食" }[cat] || cat);
     const sign = makeLabelSprite(title, {
       bg: "rgba(80,40,30,0.82)",
-      scaleX: 0.48,
-      scaleY: 0.12,
-      fontSize: 30,
+      scaleX: 0.58,
+      scaleY: 0.15,
+      fontSize: 40,
     });
     sign.position.set(0, 2.28, side * (halfD + 0.05));
     g.add(sign);
@@ -673,9 +673,9 @@ export function createMarketShelf(cat, label, { doubleSided = true } = {}) {
     makeInteractableHit(hit, { type: "shelf", cat });
     const buy = makeLabelSprite(`选购·${title}`, {
       bg: "rgba(239,107,138,0.95)",
-      scaleX: 0.5,
-      scaleY: 0.12,
-      fontSize: 30,
+      scaleX: 0.6,
+      scaleY: 0.15,
+      fontSize: 40,
     });
     buy.position.set(0, 2.48, side * (halfD + 0.12));
     g.add(hit, buy);
@@ -823,9 +823,9 @@ export function createGoodsMesh(cat, itemDef, seed = 0) {
     const tag = makeLabelSprite(name, {
       bg: "rgba(255,255,255,0.94)",
       color: "#5a3040",
-      scaleX: 0.2,
-      scaleY: 0.055,
-      fontSize: 22,
+      scaleX: 0.26,
+      scaleY: 0.07,
+      fontSize: 32,
     });
     tag.position.set(0, 0.36, 0.02);
     g.add(tag);

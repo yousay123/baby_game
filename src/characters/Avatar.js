@@ -858,34 +858,35 @@ export function setSitPose(npc, sitting = true) {
   npc.userData.pose = sitting ? "sit" : "stand";
 
   if (sitting) {
+    // 腿朝角色前方（-X 旋转）：正旋转会甩到身后
     if (legL) {
-      legL.rotation.x = Math.PI / 2.2;
-      legL.position.set(-0.09, 0.55, 0.08);
+      legL.rotation.x = -Math.PI / 2.15;
+      legL.position.set(-0.09, 0.55, 0.06);
     }
     if (legR) {
-      legR.rotation.x = Math.PI / 2.2;
-      legR.position.set(0.09, 0.55, 0.08);
+      legR.rotation.x = -Math.PI / 2.15;
+      legR.position.set(0.09, 0.55, 0.06);
     }
     if (calfL) {
-      calfL.rotation.x = 0.45;
+      calfL.rotation.x = 0.55;
       calfL.position.set(0, -0.38, 0);
     }
     if (calfR) {
-      calfR.rotation.x = 0.45;
+      calfR.rotation.x = 0.55;
       calfR.position.set(0, -0.38, 0);
     }
     if (torso) torso.position.y = 0.86;
     if (neckMesh) neckMesh.position.y = 1.12;
     if (headG) headG.position.y = 1.24;
     if (armL) {
-      armL.position.set(-0.24, 0.72, 0.12);
-      armL.rotation.x = 1.05;
-      armL.rotation.z = 0.1;
+      armL.position.set(-0.24, 0.72, 0.14);
+      armL.rotation.x = -0.35;
+      armL.rotation.z = 0.12;
     }
     if (armR) {
-      armR.position.set(0.24, 0.72, 0.12);
-      armR.rotation.x = 1.05;
-      armR.rotation.z = -0.1;
+      armR.position.set(0.24, 0.72, 0.14);
+      armR.rotation.x = -0.35;
+      armR.rotation.z = -0.12;
     }
     if (jeans) jeans.position.y = 0.42;
     if (skirt) skirt.position.y = 0.4;
@@ -948,19 +949,19 @@ export function setPlayerSit(avatar, sitting = true) {
 
   if (sitting) {
     if (legL) {
-      legL.rotation.x = Math.PI / 2.3;
-      legL.position.set(-0.09, 0.55, 0.1);
+      legL.rotation.x = -Math.PI / 2.2;
+      legL.position.set(-0.09, 0.55, 0.08);
     }
     if (legR) {
-      legR.rotation.x = Math.PI / 2.3;
-      legR.position.set(0.09, 0.55, 0.1);
+      legR.rotation.x = -Math.PI / 2.2;
+      legR.position.set(0.09, 0.55, 0.08);
     }
     if (calfL) {
-      calfL.rotation.x = 0.4;
+      calfL.rotation.x = 0.5;
       calfL.position.set(0, -0.36, 0);
     }
     if (calfR) {
-      calfR.rotation.x = 0.4;
+      calfR.rotation.x = 0.5;
       calfR.position.set(0, -0.36, 0);
     }
     if (skirt) skirt.position.y = 0.32;
@@ -978,12 +979,12 @@ export function setPlayerSit(avatar, sitting = true) {
     if (neck) neck.position.y = 1.14;
     if (headG) headG.position.y = 1.24;
     if (armL) {
-      armL.rotation.x = 0.85;
-      armL.position.set(-0.26, 1.0, 0.08);
+      armL.rotation.x = -0.25;
+      armL.position.set(-0.26, 1.0, 0.1);
     }
     if (armR) {
-      armR.rotation.x = 0.85;
-      armR.position.set(0.26, 1.0, 0.08);
+      armR.rotation.x = -0.25;
+      armR.position.set(0.26, 1.0, 0.1);
     }
   } else {
     if (legL) {

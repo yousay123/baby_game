@@ -380,6 +380,14 @@ export class DiningScene extends BaseScene {
     });
     this.familyMoving = [];
 
+    // 餐厅俯瞰餐桌：相机抬高一些，方便看清桌面与家人
+    if (game.fp && this.player) {
+      const face = this.player.rotation.y;
+      game.fp.resetLook(face + Math.PI, 0.7, this.roomBounds);
+      game.fp.maxPitch = 1.05;
+      game.fp.syncCamera(this.player, this.roomBounds);
+    }
+
     this.threeScene.add(createWindow(-2.5, 1.7, -4.85));
     this.threeScene.add(createWindow(2.5, 1.7, -4.85));
 

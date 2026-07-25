@@ -487,7 +487,7 @@ export class MarketScene extends BaseScene {
     cart2.position.set(-5.2, 0, 5.5);
     makeInteractable(cart1, { type: "carts" });
     makeInteractable(cart2, { type: "carts" });
-    const cartLabel = makeLabelSprite("购物车");
+    const cartLabel = makeLabelSprite("购物车", { scaleX: 0.78, scaleY: 0.2, fontSize: 38 });
     cartLabel.position.set(-5.7, 1.3, 5.5);
     this.threeScene.add(cart1, cart2, cartLabel);
     this.addColliderAt(-5.7, 5.5, 0.9, 0.6);
@@ -495,7 +495,7 @@ export class MarketScene extends BaseScene {
     const checkout = createCheckoutCounter();
     checkout.position.set(6.2, 0, 5.0);
     makeInteractable(checkout, { type: "checkout" });
-    const checkLabel = makeLabelSprite("收银台");
+    const checkLabel = makeLabelSprite("收银台", { scaleX: 0.78, scaleY: 0.2, fontSize: 38 });
     checkLabel.position.set(6.2, 2.15, 5.0);
     this.addColliderFor(checkout, 1.3, 0.65);
 
@@ -503,7 +503,7 @@ export class MarketScene extends BaseScene {
     cashier.position.set(6.2, 0, 4.0);
     cashier.rotation.y = 0;
     makeInteractable(cashier, { type: "cashier" });
-    const cashLabel = makeLabelSprite("收银员");
+    const cashLabel = makeLabelSprite("收银员", { scaleX: 0.72, scaleY: 0.18, fontSize: 38 });
     cashLabel.position.set(6.2, 1.9, 4.0);
     this.threeScene.add(checkout, checkLabel, cashier, cashLabel);
     this.addColliderAt(6.2, 4.0, 0.35, 0.35);
@@ -557,7 +557,7 @@ export class MarketScene extends BaseScene {
     promo.position.set(1.5, 0.35, 4.2);
     const promoTop = softBox(1.5, 0.08, 0.9, 0xfff8e0);
     promoTop.position.set(1.5, 0.72, 4.2);
-    const promoSign = makeLabelSprite("今日特价");
+    const promoSign = makeLabelSprite("今日特价", { scaleX: 0.78, scaleY: 0.2, fontSize: 38 });
     promoSign.position.set(1.5, 1.2, 4.2);
     this.threeScene.add(promo, promoTop, promoSign);
     this.addColliderAt(1.5, 4.2, 0.9, 0.6);
