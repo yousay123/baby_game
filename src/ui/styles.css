@@ -301,9 +301,11 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   align-content: start;
+  -webkit-overflow-scrolling: touch;
 }
 .makeup-options button,
 .makeup-options .product-card {
@@ -731,10 +733,11 @@ body.scene-makeup .makeup-panel {
   flex-wrap: wrap;
   gap: 8px;
 }
-.recipe-block {
-  margin: 0;
-  font-size: 13px;
-  color: #9a5070;
+.recipe-block-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
 }
 
 /* —— Responsive: phone / tablet / desktop —— */
@@ -796,18 +799,72 @@ body.scene-makeup .makeup-panel {
     flex-direction: column;
   }
   .hud-card { min-width: 0; flex-shrink: 0; }
+  /* 化妆/换装面板：保证选项区可滚动可见 */
   .makeup-panel {
     top: auto;
-    bottom: max(12px, env(safe-area-inset-bottom));
-    right: max(10px, env(safe-area-inset-right));
-    left: max(10px, env(safe-area-inset-left));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    right: max(8px, env(safe-area-inset-right));
+    left: max(8px, env(safe-area-inset-left));
     width: auto;
-    max-height: 46vh;
-    padding: 12px;
+    max-height: min(62vh, 560px);
+    min-height: 280px;
+    padding: 10px 12px;
+    gap: 8px;
+    overflow: hidden;
+    z-index: 14;
   }
-  /* 手机：去掉桌面右侧 340px 留白，角色镜子才能看见 */
+  .makeup-panel-head { flex-shrink: 0; }
+  .makeup-tip { display: none; }
+  .bg-styles {
+    flex-shrink: 0;
+    margin: 0;
+    gap: 4px;
+  }
+  .char-styles {
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-height: none;
+    margin: 0;
+    padding-bottom: 2px;
+    gap: 6px;
+  }
+  .char-style-btn {
+    min-width: 56px;
+    min-height: 48px;
+    padding: 6px 8px;
+  }
+  .makeup-modes,
+  .makeup-tabs {
+    flex-shrink: 0;
+  }
+  .makeup-tabs {
+    max-height: 78px;
+    overflow-y: auto;
+  }
+  .makeup-options {
+    flex: 1 1 auto;
+    min-height: 150px;
+    max-height: none !important;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    padding-bottom: 4px;
+  }
+  .makeup-options button,
+  .makeup-options .product-card {
+    min-height: 64px;
+    padding: 8px 6px;
+  }
+  .makeup-panel .btn-coral {
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+  /* 手机：镜子上移，给底部面板留空 */
   .makeup-2d {
-    padding: 88px 16px max(52vh, 280px) 16px;
+    padding: 88px 16px max(64vh, 300px) 16px;
     align-items: flex-start;
     justify-content: center;
   }
@@ -822,17 +879,12 @@ body.scene-makeup .makeup-panel {
     border-radius: 22px;
   }
   .m2d-glass {
-    max-height: min(48vh, 420px);
+    max-height: min(42vh, 380px);
     margin: 0 auto;
-  }
-  .makeup-options {
-    grid-template-columns: repeat(3, 1fr);
-    max-height: none;
-    gap: 8px;
   }
   .product-card,
   .char-style-btn {
-    min-height: 68px;
+    min-height: 64px;
   }
   .toast {
     bottom: max(20px, env(safe-area-inset-bottom));
@@ -860,7 +912,14 @@ body.scene-makeup .makeup-panel {
 @media (max-width: 420px) {
   .brand h1 { font-size: 16px; }
   .hud-body { max-height: 32vh; }
-  .makeup-options { grid-template-columns: repeat(2, 1fr); }
+  .makeup-panel {
+    max-height: min(68vh, 580px);
+    min-height: 300px;
+  }
+  .makeup-options {
+    grid-template-columns: repeat(2, 1fr);
+    min-height: 160px;
+  }
   .scene-nav button { padding: 10px 12px; font-size: 13px; }
 }
 

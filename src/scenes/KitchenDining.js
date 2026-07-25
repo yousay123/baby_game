@@ -626,18 +626,31 @@ export class DiningScene extends BaseScene {
     }
     if (allDone && game.state.mealPhase === "seating") {
       setMealPhase(game.state, "eating");
-      game.toast("全家开吃！热气腾腾好幸福～");
+      game.toast("全家围坐开吃啦！热气腾腾好幸福～");
+      const chats = [
+        "爸爸：这菜真香！小蜜糖真棒～",
+        "妈妈：今天做得真好吃，多吃点哦～",
+        "爸爸：吃完我们再一起聊聊～",
+        "妈妈：旺旺也乖，蹲在桌下陪着我们呢",
+      ];
+      chats.forEach((line, i) => {
+        setTimeout(() => {
+          if (game.state.mealPhase === "eating" || game.state.mealPhase === "done") {
+            game.toast(line);
+          }
+        }, 1400 + i * 1600);
+      });
       setTimeout(() => {
         if (game.state.mealPhase === "eating") {
           setMealPhase(game.state, "done");
           const bonus = claimMealBonus(game.state);
           if (bonus.ok) {
-            game.toast(`吃饱啦！爸爸妈妈给了你 ¥${bonus.amount} 奖励～ 钱包 ¥${bonus.money}`);
+            game.toast(`吃饱聊开心啦！爸妈给了你 ¥${bonus.amount} 奖励～ 钱包 ¥${bonus.money}`);
           } else {
             game.toast("吃饱啦！小蜜糖真能干～");
           }
         }
-      }, 4000);
+      }, 1400 + chats.length * 1600 + 800);
       this.familyMoving = [];
     }
   }

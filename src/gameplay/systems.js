@@ -289,6 +289,76 @@ export function addToCart(state, goods) {
   return { ok: true, msg: `放入购物车：${goods.name}` };
 }
 
+/** 菜谱内一键采购：扣钱后直接放到操作台（蔬菜待洗） */
+export function buyIngredientDirect(state, ingredientId) {
+  const goods = ALL_GOODS.find((g) => g.id === ingredientId);
+  if (!goods) return { ok: false, msg: "没有这种食材" };
+  if (findItemIn(state.prep, ingredientId) || findItemIn(state.fridge, ingredientId)) {
+    return { ok: false, msg: `${goods.name}厨房里已经有了` };
+  }
+  // 袋中有则直接取出到操作台，不重复买
+  const bagIdx = state.bag.findIndex((i) => i.id === ingredientId);
+  if (bagIdx >= 0) {
+    const item = state.bag.splice(bagIdx, 1)[0];
+    state.prep.push(item);
+    emit(state);
+    return { ok: true, amount: 0, msg: `从购物袋取出${goods.name}到操作台`, item };
+  }
+  const spend = spendMoney(state, goods.price, `采购${goods.name}`);
+  if (!spend.ok) return { ok: false, msg: spend.msg || "钱不够啦～" };
+  state.prep.push(cloneItem({ ...goods, washed: false }));
+  emit(state);
+  return {
+    ok: true,
+    amount: goods.price,
+    msg: `花 ¥${goods.price} 买了${goods.name}，已放到操作台`,
+    item: goods,
+  };
+}
+
+/** 一键采购菜谱全部缺料 */
+export function buyMissingIngredients(state, recipeId) {
+  const recipe = DISH_RECIPES.find((r) => r.id === recipeId);
+  if (!recipe) return { ok: false, msg: "未知菜谱" };
+  const { needBuy } = analyzeRecipe(state, recipe);
+  if (!needBuy.length) return { ok: true, bought: [], total: 0, msg: "材料已经齐了" };
+  const bought = [];
+  let total = 0;
+  for (const ing of needBuy) {
+    const res = buyIngredientDirect(state, ing.id);
+    if (!res.ok) {
+      return {
+        ok: false,
+        msg: res.msg,
+        bought,
+        total,
+      };
+    }
+    bought.push(ing.name);
+    total += res.amount || 0;
+  }
+  return {
+    ok: true,
+    bought,
+    total,
+    msg: total
+      ? `采购完成：${bought.join("、")}，共花 ¥${total}`
+      : `已备好：${bought.join("、")}`,
+  };
+}
+
+/** 从冰箱取指定食材到操作台 */
+export function takeIngredientToPrep(state, ingredientId) {
+  if (!isPowerOn(state, "fridge")) return { ok: false, msg: "请先打开冰箱" };
+  const idx = state.fridge.findIndex((i) => i.id === ingredientId);
+  if (idx < 0) return { ok: false, msg: "冰箱里没有这份食材" };
+  const item = state.fridge.splice(idx, 1)[0];
+  state.prep.push(item);
+  state.holding = item;
+  emit(state);
+  return { ok: true, msg: `取出了${item.name}`, item };
+}
+
 export function earnMoney(state, amount, reason = "") {
   const n = Math.max(0, Math.floor(amount));
   if (!n) return { ok: false, amount: 0 };

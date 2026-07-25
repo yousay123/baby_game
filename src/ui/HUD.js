@@ -14,6 +14,9 @@ import {
   startCook,
   startCookRecipe,
   analyzeRecipe,
+  buyIngredientDirect,
+  buyMissingIngredients,
+  takeIngredientToPrep,
   checkoutCart,
   addToCart,
 } from "../gameplay/systems.js";
@@ -228,17 +231,19 @@ export class HUD {
       if (state.carrying) {
         this.addBtn(actions, "放到餐桌上", () => {
           if (placeOnTable(state)) {
-            this.toast("菜上桌啦，热气腾腾～");
+            this.toast("菜上桌啦！点「喊爸爸妈妈吃饭」请他们来餐厅一起吃吧～");
             this.game.scenes.current?.onFoodPlaced?.(this.game);
             this.game.syncCarryVisual();
+            this.refresh(state);
           }
         }, "btn-coral");
       }
-      if (state.tableFood.length && state.mealPhase !== "eating" && state.mealPhase !== "done") {
+      if (state.tableFood.length && state.mealPhase !== "eating" && state.mealPhase !== "done" && state.mealPhase !== "calling" && state.mealPhase !== "seating") {
         this.addBtn(actions, "喊爸爸妈妈吃饭！", () => {
           if (startMealCall(state)) {
-            this.toast("开饭啦——爸爸妈妈快来！");
+            this.toast("开饭啦——爸爸妈妈快来餐厅！");
             this.game.scenes.current?.onCallFamily?.(this.game);
+            this.refresh(state);
           }
         }, "btn-coral");
       }
@@ -262,16 +267,18 @@ export class HUD {
 
   kitchenQuest(state) {
     if (state.bag.length) return "点冰箱把购物袋放进去";
-    if (state.fridge.length && !state.prep.length) return "打开冰箱取出食材";
+    if (state.fridge.length && !state.prep.length) return "打开冰箱取出食材，或打开灶台菜谱直接采购";
     if (state.prep.some((i) => i.tag === "veg" && !i.washed)) return "去水槽洗菜";
     if (state.cooked.length && !state.plated.length) return "把菜装进盘子或碗里";
-    if (state.plated.length || state.carrying) return "端菜去餐厅";
+    if (state.plated.length || state.carrying) return "端菜去餐厅上桌，再喊爸妈吃饭";
     return "开电器，点灶台看菜谱做饭";
   }
 
   diningQuest(state) {
-    if (state.mealPhase === "eating" || state.mealPhase === "done") return "一家人吃饭中，狗狗蹲在桌下～";
-    if (state.tableFood.length) return "喊爸爸妈妈来吃饭吧";
+    if (state.mealPhase === "eating") return "一家人吃饭聊天中，狗狗蹲在桌下～";
+    if (state.mealPhase === "done") return "吃饱啦！可以回厨房再做一道菜";
+    if (state.mealPhase === "calling" || state.mealPhase === "seating") return "爸爸妈妈正在往餐厅走…";
+    if (state.tableFood.length) return "菜已上桌，喊爸爸妈妈来吃饭吧";
     if (state.carrying) return "走到餐桌旁把菜放下";
     return "先去厨房做饭装盘再回来";
   }
@@ -301,8 +308,9 @@ export class HUD {
   /**
    * 灶台/电饭煲/烤箱菜谱面板
    * @param {"stove"|"rice"|"oven"} station
+   * @param {string} [keepRecipeId] 刷新后面板仍展开该菜
    */
-  openCookRecipeModal(station = "stove") {
+  openCookRecipeModal(station = "stove", keepRecipeId = null) {
     const state = this.game.state;
     const recipes = DISH_RECIPES.filter((r) => r.station === station);
     const stationName =
@@ -318,7 +326,7 @@ export class HUD {
         ${powerLabel}：${powerOn ? "已打开" : "未打开"}
         ${powerOn ? "" : `<button type="button" class="btn btn-coral btn-sm" data-power-on="${powerKey}">先打开</button>`}
       </p>
-      <p class="recipe-hint">选一道菜查看材料；缺的可去超市采购</p>
+      <p class="recipe-hint">选一道菜；缺料可直接采购到操作台，洗菜后开做</p>
       <div class="recipe-list"></div>
       <div class="recipe-detail" hidden></div>
     `;
@@ -326,17 +334,11 @@ export class HUD {
     const listEl = wrap.querySelector(".recipe-list");
     const detailEl = wrap.querySelector(".recipe-detail");
 
-    const goMarketFor = (ingredientIds, names) => {
-      state.shoppingHint = ingredientIds || [];
-      document.getElementById("modal").hidden = true;
-      this.toast(`去超市买：${(names || []).join("、")}`);
-      this.game.go("market");
-    };
-
     const showDetail = (recipeId) => {
       const recipe = recipes.find((r) => r.id === recipeId);
       if (!recipe) return;
       const { ingredients, needBuy, canCook } = analyzeRecipe(state, recipe);
+      const missCost = needBuy.reduce((s, i) => s + (Number(i.price) || ALL_GOODS.find((g) => g.id === i.id)?.price || 0), 0);
       detailEl.hidden = false;
       detailEl.innerHTML = `
         <div class="recipe-detail-head">
@@ -349,21 +351,27 @@ export class HUD {
         <ul class="recipe-ings">
           ${ingredients
             .map((ing) => {
+              const goods = ALL_GOODS.find((g) => g.id === ing.id);
+              const price = goods?.price || 0;
               const cls =
                 ing.status === "missing"
                   ? "is-missing"
                   : ing.status === "have"
                     ? "is-have"
                     : "is-warn";
-              const buyBtn =
-                ing.status === "missing"
-                  ? `<button type="button" class="btn btn-coral btn-sm" data-buy="${ing.id}" data-buy-name="${ing.name}">去超市买</button>`
-                  : "";
+              let actionBtn = "";
+              if (ing.status === "missing") {
+                actionBtn = `<button type="button" class="btn btn-coral btn-sm" data-buy="${ing.id}">采购 ¥${price}</button>`;
+              } else if (ing.status === "inFridge") {
+                actionBtn = `<button type="button" class="btn btn-coral btn-sm" data-take="${ing.id}">取出</button>`;
+              } else if (ing.status === "inBag") {
+                actionBtn = `<button type="button" class="btn btn-coral btn-sm" data-buy="${ing.id}">放到操作台</button>`;
+              }
               return `<li class="${cls}">
-                <span class="ing-swatch" style="background:${ing.color || "#ccc"}"></span>
+                <span class="ing-swatch" style="background:${ing.color || goods?.color || "#ccc"}"></span>
                 <span class="ing-name">${ing.name}</span>
                 <span class="ing-status">${ing.label}</span>
-                ${buyBtn}
+                ${actionBtn}
               </li>`;
             })
             .join("")}
@@ -371,36 +379,64 @@ export class HUD {
         <div class="recipe-actions">
           ${
             needBuy.length
-              ? `<button type="button" class="btn btn-coral" data-buy-all="1">缺料：去超市采购</button>`
+              ? `<button type="button" class="btn btn-coral" data-buy-all="1">一键采购缺料 ¥${missCost}</button>`
               : canCook
                 ? `<button type="button" class="btn btn-coral" data-cook="${recipe.id}">开始做${recipe.name}</button>`
-                : `<p class="recipe-block">${
-                    ingredients.find((i) => i.status === "needWash")
-                      ? "请先去水槽洗菜"
-                      : ingredients.find((i) => i.status === "inFridge")
-                        ? "请先从冰箱取出到操作台"
-                        : ingredients.find((i) => i.status === "inBag")
-                          ? "请先把购物袋放进冰箱再取出"
-                          : state.cooking
-                            ? "正在做饭中…"
-                            : !isPowerOn(state, powerKey)
-                              ? `请先打开${powerLabel}`
-                              : "材料还没准备好"
-                  }</p>`
+                : `<div class="recipe-block-wrap">
+                    <p class="recipe-block">${
+                      ingredients.find((i) => i.status === "needWash")
+                        ? "蔬菜还没洗，先去水槽洗菜～"
+                        : ingredients.find((i) => i.status === "inFridge")
+                          ? "材料在冰箱，点「取出」放到操作台"
+                          : ingredients.find((i) => i.status === "inBag")
+                            ? "材料在购物袋，点上面按钮放到操作台"
+                            : state.cooking
+                              ? "正在做饭中…"
+                              : !isPowerOn(state, powerKey)
+                                ? `请先打开${powerLabel}`
+                                : "材料还没准备好"
+                    }</p>
+                    ${
+                      ingredients.some((i) => i.status === "inFridge")
+                        ? `<button type="button" class="btn btn-coral" data-take-all="1">全部取出到操作台</button>`
+                        : ""
+                    }
+                  </div>`
           }
         </div>
       `;
 
       detailEl.querySelectorAll("[data-buy]").forEach((btn) => {
-        btn.onclick = () => goMarketFor([btn.dataset.buy], [btn.dataset.buyName]);
+        btn.onclick = () => {
+          const res = buyIngredientDirect(state, btn.dataset.buy);
+          this.toast(res.msg);
+          this.openCookRecipeModal(station, recipe.id);
+        };
+      });
+      detailEl.querySelectorAll("[data-take]").forEach((btn) => {
+        btn.onclick = () => {
+          const res = takeIngredientToPrep(state, btn.dataset.take);
+          this.toast(res.msg);
+          this.openCookRecipeModal(station, recipe.id);
+        };
       });
       const buyAll = detailEl.querySelector("[data-buy-all]");
       if (buyAll) {
-        buyAll.onclick = () =>
-          goMarketFor(
-            needBuy.map((i) => i.id),
-            needBuy.map((i) => i.name)
-          );
+        buyAll.onclick = () => {
+          const res = buyMissingIngredients(state, recipe.id);
+          this.toast(res.msg);
+          this.openCookRecipeModal(station, recipe.id);
+        };
+      }
+      const takeAll = detailEl.querySelector("[data-take-all]");
+      if (takeAll) {
+        takeAll.onclick = () => {
+          ingredients
+            .filter((i) => i.status === "inFridge")
+            .forEach((i) => takeIngredientToPrep(state, i.id));
+          this.toast("食材已放到操作台");
+          this.openCookRecipeModal(station, recipe.id);
+        };
       }
       const cookBtn = detailEl.querySelector("[data-cook]");
       if (cookBtn) {
@@ -410,11 +446,11 @@ export class HUD {
             this.game.scenes.current?.applyPower?.(state);
           }
           const res = startCookRecipe(state, recipe.id, (r) => {
-            this.toast(`${r.dish}做好啦！去装盘台装盘/装碗～`);
+            this.toast(`${r.dish}做好啦！去装盘，再端到餐厅喊爸妈吃饭～`);
           });
           this.toast(res.msg);
           if (res.ok) document.getElementById("modal").hidden = true;
-          else showDetail(recipe.id);
+          else this.openCookRecipeModal(station, recipe.id);
         };
       }
     };
@@ -454,8 +490,11 @@ export class HUD {
       this.openCookRecipeModal(station);
     });
 
-    // 默认展开（灶台优先西红柿炒鸡蛋）
-    const preferred = recipes.find((r) => r.id === "tomatoEgg") || recipes[0];
+    // 默认展开（刷新时保持当前菜；灶台优先西红柿炒鸡蛋）
+    const preferred =
+      (keepRecipeId && recipes.find((r) => r.id === keepRecipeId)) ||
+      recipes.find((r) => r.id === "tomatoEgg") ||
+      recipes[0];
     if (preferred) {
       const cards = [...listEl.querySelectorAll(".recipe-card")];
       const idx = recipes.findIndex((r) => r.id === preferred.id);
