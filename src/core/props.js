@@ -597,7 +597,7 @@ export function createUpperCabinets(width = 6) {
 
 /**
  * Gondola shelf. doubleSided=true → island with goods on both faces.
- * Only the pink「选购」plates are clickable (avoids mis-clicks while walking).
+ * 整面货架可点选购（透明碰撞盒覆盖货架主体）。
  */
 export function createMarketShelf(cat, label, { doubleSided = true } = {}) {
   const g = new THREE.Group();
@@ -661,8 +661,15 @@ export function createMarketShelf(cat, label, { doubleSided = true } = {}) {
     sign.position.set(0, 2.28, side * (halfD + 0.05));
     g.add(sign);
 
-    const hit = softBox(0.95, 0.32, 0.1, 0xef6b8a);
-    hit.position.set(0, 2.22, side * (halfD + 0.08));
+    // 整面可点：覆盖货架正面（透明碰撞盒，仍参与射线拾取）
+    const hit = softBox(2.05, 2.15, Math.max(0.35, halfD + 0.2), 0xef6b8a, {
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+    });
+    hit.position.set(0, 1.15, side * (halfD * 0.45));
+    hit.castShadow = false;
+    hit.receiveShadow = false;
     makeInteractableHit(hit, { type: "shelf", cat });
     const buy = makeLabelSprite(`选购·${title}`, {
       bg: "rgba(239,107,138,0.95)",

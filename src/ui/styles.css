@@ -805,6 +805,26 @@ body.scene-makeup .makeup-panel {
     max-height: 46vh;
     padding: 12px;
   }
+  /* 手机：去掉桌面右侧 340px 留白，角色镜子才能看见 */
+  .makeup-2d {
+    padding: 88px 16px max(52vh, 280px) 16px;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  .m2d-mirror {
+    max-width: min(360px, 92vw);
+    width: 100%;
+    margin: 0 auto;
+    flex: 0 1 auto;
+  }
+  .m2d-frame {
+    padding: 10px;
+    border-radius: 22px;
+  }
+  .m2d-glass {
+    max-height: min(48vh, 420px);
+    margin: 0 auto;
+  }
   .makeup-options {
     grid-template-columns: repeat(3, 1fr);
     max-height: none;
@@ -871,6 +891,23 @@ body.scene-makeup .makeup-panel {
     right: 8px;
     left: auto;
     max-height: none;
+  }
+  body.scene-makeup .makeup-2d {
+    padding: 56px 12px 12px 12px;
+  }
+  body.scene-makeup .m2d-mirror {
+    max-width: min(280px, 42vw);
+  }
+  body.scene-makeup .m2d-glass {
+    max-height: min(78vh, 360px);
+  }
+  body.scene-makeup .makeup-panel {
+    top: 56px;
+    bottom: 8px;
+    left: auto;
+    right: 8px;
+    width: min(320px, 48vw);
+    max-height: calc(100vh - 72px);
   }
   .hud-body {
     width: min(240px, 36vw);

@@ -128,23 +128,43 @@ export function createPlayerAvatar(state) {
 
   const skinOpt = { ...SKIN_OPT, emissive: skin };
 
-  // Legs — longer so lower body matches upper body
-  const legL = capsule(0.056, 0.56, 0xffd0dc, skinOpt);
-  legL.position.set(-0.09, 0.42, 0);
-  legL.name = "legL";
-  const legR = capsule(0.056, 0.56, 0xffd0dc, skinOpt);
-  legR.position.set(0.09, 0.42, 0);
-  legR.name = "legR";
-  body.add(legL, legR);
+  /** 大腿 Group(leg*) → 小腿 Group(calf*) → 鞋，走路可屈膝 */
+  const makeLeg = (side) => {
+    const x = side * 0.09;
+    const thigh = new THREE.Group();
+    thigh.name = side < 0 ? "legL" : "legR";
+    thigh.position.set(x, 0.74, 0);
 
-  const mkShoe = (x, name) => {
-    const s = sphere(0.072, dress, { ...CLOTH_OPT, segments: 14 });
-    s.scale.set(1.15, 0.48, 1.4);
-    s.position.set(x, 0.05, 0.04);
-    s.name = name;
-    return s;
+    const thighMesh = capsule(0.055, 0.3, 0xffd0dc, skinOpt);
+    thighMesh.position.set(0, -0.17, 0);
+    thighMesh.name = side < 0 ? "thighMeshL" : "thighMeshR";
+    thigh.add(thighMesh);
+
+    const calf = new THREE.Group();
+    calf.name = side < 0 ? "calfL" : "calfR";
+    calf.position.set(0, -0.36, 0);
+
+    const calfSkin = capsule(0.048, 0.28, skin, skinOpt);
+    calfSkin.position.set(0, -0.16, 0);
+    calfSkin.name = side < 0 ? "calfSkinL" : "calfSkinR";
+    calf.add(calfSkin);
+
+    const calfPants = capsule(0.052, 0.28, 0x4a6a9a, CLOTH_OPT);
+    calfPants.position.set(0, -0.16, 0);
+    calfPants.name = side < 0 ? "calfPantsL" : "calfPantsR";
+    calfPants.visible = false;
+    calf.add(calfPants);
+
+    const shoe = sphere(0.07, dress, { ...CLOTH_OPT, segments: 14 });
+    shoe.scale.set(1.15, 0.48, 1.4);
+    shoe.position.set(0, -0.34, 0.04);
+    shoe.name = side < 0 ? "shoeL" : "shoeR";
+    calf.add(shoe);
+
+    thigh.add(calf);
+    return thigh;
   };
-  body.add(mkShoe(-0.09, "shoeL"), mkShoe(0.09, "shoeR"));
+  body.add(makeLeg(-1), makeLeg(1));
 
   // Hips + ball skirt
   const hips = capsule(0.13, 0.12, dress, CLOTH_OPT);
@@ -164,8 +184,9 @@ export function createPlayerAvatar(state) {
   skirt.name = "skirt";
   body.add(skirt);
 
-  const bottom = capsule(0.11, 0.36, 0x4a6a9a, CLOTH_OPT);
-  bottom.position.y = 0.8;
+  // 裤装覆盖大腿，避免粉腿穿出
+  const bottom = capsule(0.12, 0.5, 0x4a6a9a, CLOTH_OPT);
+  bottom.position.y = 0.55;
   bottom.name = "bottom";
   bottom.visible = false;
   body.add(bottom);
@@ -187,32 +208,38 @@ export function createPlayerAvatar(state) {
   chest.name = "chest";
   body.add(chest);
 
-  // Puff sleeves
-  const sleeveL = sphere(0.09, dress, { ...CLOTH_OPT, segments: 14 });
-  sleeveL.scale.set(1.15, 0.95, 1.05);
-  sleeveL.position.set(-0.2, 1.3, 0);
+  // Puff sleeves — 略小，露出手臂
+  const sleeveL = sphere(0.075, dress, { ...CLOTH_OPT, segments: 14 });
+  sleeveL.scale.set(1.1, 0.9, 1.0);
+  sleeveL.position.set(-0.26, 1.34, 0);
   sleeveL.name = "sleeveL";
   const sleeveR = sleeveL.clone();
-  sleeveR.position.x = 0.2;
+  sleeveR.position.x = 0.26;
   sleeveR.name = "sleeveR";
   body.add(sleeveL, sleeveR);
 
-  // Arms
-  const armL = capsule(0.05, 0.26, skin, skinOpt);
-  armL.position.set(-0.22, 1.08, 0);
-  armL.name = "armL";
-  const armR = capsule(0.05, 0.26, skin, skinOpt);
-  armR.position.set(0.22, 1.08, 0);
-  armR.name = "armR";
-  body.add(armL, armR);
+  /** 肩关节 Group(arm*)，手挂在臂末端，走路可摆臂 */
+  const makeArm = (side) => {
+    const arm = new THREE.Group();
+    arm.name = side < 0 ? "armL" : "armR";
+    arm.position.set(side * 0.28, 1.34, 0);
 
-  const handL = sphere(0.048, skin, { ...skinOpt, segments: 10 });
-  handL.position.set(-0.22, 0.8, 0.02);
-  handL.name = "handL";
-  const handR = sphere(0.048, skin, { ...skinOpt, segments: 10 });
-  handR.position.set(0.22, 0.8, 0.02);
-  handR.name = "handR";
-  body.add(handL, handR);
+    const upper = capsule(0.045, 0.24, skin, skinOpt);
+    upper.position.set(0, -0.14, 0);
+    arm.add(upper);
+
+    const lower = capsule(0.04, 0.22, skin, skinOpt);
+    lower.position.set(0, -0.38, 0);
+    arm.add(lower);
+
+    const hand = sphere(0.045, skin, { ...skinOpt, segments: 10 });
+    hand.position.set(0, -0.52, 0.02);
+    hand.name = side < 0 ? "handL" : "handR";
+    arm.add(hand);
+
+    return arm;
+  };
+  body.add(makeArm(-1), makeArm(1));
 
   // Neck — 加长并与头部重叠，消除断裂感
   const neck = capsule(0.055, 0.14, skin, skinOpt);
@@ -376,24 +403,30 @@ export function createPlayerAvatar(state) {
   catEar.visible = false;
   headG.add(catEar);
 
-  // 手表 — 左手腕
+  // 手表 — 左臂腕部
   const watch = softBox(0.05, 0.035, 0.04, 0xff6b8a, CLOTH_OPT);
-  watch.position.set(-0.22, 0.78, 0.04);
+  watch.position.set(0, -0.48, 0.04);
   watch.name = "watch";
   watch.visible = false;
-  body.add(watch);
+  const armLRef = body.getObjectByName("armL");
+  if (armLRef) armLRef.add(watch);
 
-  // 手链 — 右手腕
+  // 手链 — 右臂腕部
   const bracelet = cyl(0.035, 0.035, 0.02, accent, { metalness: 0.4, roughness: 0.3, segments: 12 });
-  bracelet.position.set(0.22, 0.78, 0.02);
+  bracelet.position.set(0, -0.48, 0.02);
   bracelet.name = "bracelet";
   bracelet.visible = false;
-  body.add(bracelet);
+  const armRRef = body.getObjectByName("armR");
+  if (armRRef) armRRef.add(bracelet);
 
   const hold = new THREE.Group();
   hold.name = "hold";
-  hold.position.set(0.28, 0.82, 0.1);
-  body.add(hold);
+  hold.position.set(0.08, -0.5, 0.1);
+  if (armRRef) armRRef.add(hold);
+  else {
+    hold.position.set(0.28, 0.82, 0.1);
+    body.add(hold);
+  }
 
   const cartMount = new THREE.Group();
   cartMount.name = "cartMount";
@@ -460,6 +493,26 @@ export function applyMakeup(avatar, state) {
     skirt.visible = opt.skirt !== false;
     if (bottomMesh) bottomMesh.visible = opt.skirt === false;
   }
+  // 裤装时用裤管盖住小腿，避免腿穿出衣服
+  const pantsMode = opt.skirt === false;
+  ["calfPantsL", "calfPantsR"].forEach((n) => {
+    const m = avatar.getObjectByName(n);
+    if (m) {
+      m.visible = pantsMode;
+      if (pantsMode) setMatColor(m, opt.dress2 || opt.dress);
+    }
+  });
+  ["calfSkinL", "calfSkinR"].forEach((n) => {
+    const m = avatar.getObjectByName(n);
+    if (m) m.visible = !pantsMode;
+  });
+  ["thighMeshL", "thighMeshR"].forEach((n) => {
+    const m = avatar.getObjectByName(n);
+    if (m) {
+      if (pantsMode) setMatColor(m, opt.dress2 || opt.dress);
+      else setMatColor(m, "#ffd0dc");
+    }
+  });
   if (hem) {
     hem.visible = opt.skirt !== false;
     setMatColor(hem, opt.dress2 || opt.dress);
@@ -642,25 +695,35 @@ export function createNPC(kind) {
   const skinOpt = { ...SKIN_OPT, emissive: skin };
   const male = !!preset.male;
 
-  const legL = capsule(0.052, 0.4, pants, { roughness: 0.55 });
-  legL.position.set(-0.09, 0.6, 0);
-  legL.name = "legL";
-  const legR = capsule(0.052, 0.4, pants, { roughness: 0.55 });
-  legR.position.set(0.09, 0.6, 0);
-  legR.name = "legR";
-  const calfL = capsule(0.048, 0.34, pants, { roughness: 0.55 });
-  calfL.position.set(-0.09, 0.24, 0);
-  calfL.name = "calfL";
-  const calfR = capsule(0.048, 0.34, pants, { roughness: 0.55 });
-  calfR.position.set(0.09, 0.24, 0);
-  calfR.name = "calfR";
-  const shoeL = sphere(0.068, male ? 0x2c2430 : 0xff6b8a, { segments: 10 });
-  shoeL.scale.set(1.1, 0.5, 1.3);
-  shoeL.position.set(-0.09, 0.05, 0.04);
-  shoeL.name = "shoeL";
-  const shoeR = shoeL.clone();
-  shoeR.position.x = 0.09;
-  shoeR.name = "shoeR";
+  const makeNpcLeg = (side) => {
+    const x = side * 0.09;
+    const thigh = new THREE.Group();
+    thigh.name = side < 0 ? "legL" : "legR";
+    thigh.position.set(x, 0.78, 0);
+
+    const thighMesh = capsule(0.052, 0.34, pants, { roughness: 0.55 });
+    thighMesh.position.set(0, -0.18, 0);
+    thigh.add(thighMesh);
+
+    const calf = new THREE.Group();
+    calf.name = side < 0 ? "calfL" : "calfR";
+    calf.position.set(0, -0.38, 0);
+
+    const calfMesh = capsule(0.048, 0.3, pants, { roughness: 0.55 });
+    calfMesh.position.set(0, -0.16, 0);
+    calf.add(calfMesh);
+
+    const shoe = sphere(0.068, male ? 0x2c2430 : 0xff6b8a, { segments: 10 });
+    shoe.scale.set(1.1, 0.5, 1.3);
+    shoe.position.set(0, -0.34, 0.04);
+    shoe.name = side < 0 ? "shoeL" : "shoeR";
+    calf.add(shoe);
+
+    thigh.add(calf);
+    return thigh;
+  };
+  const legL = makeNpcLeg(-1);
+  const legR = makeNpcLeg(1);
 
   const torso = capsule(0.12, 0.28, shirt, { roughness: 0.5 });
   torso.position.y = 1.2;
@@ -682,8 +745,8 @@ export function createNPC(kind) {
       root.add(apron);
     }
   } else {
-    const jeans = softBox(0.24, 0.22, 0.13, pants, { roughness: 0.6 });
-    jeans.position.set(0, 0.76, 0);
+    const jeans = softBox(0.24, 0.36, 0.14, pants, { roughness: 0.6 });
+    jeans.position.set(0, 0.62, 0);
     jeans.name = "jeans";
     root.add(jeans);
   }
@@ -730,20 +793,27 @@ export function createNPC(kind) {
   });
   headG.add(face3d);
 
-  const armL = capsule(0.042, 0.24, skin, skinOpt);
-  armL.position.set(-0.2, 1.12, 0);
+  const armL = new THREE.Group();
   armL.name = "armL";
-  const armR = capsule(0.042, 0.24, skin, skinOpt);
-  armR.position.set(0.2, 1.12, 0);
-  armR.name = "armR";
+  armL.position.set(-0.26, 1.32, 0);
+  const armLMesh = capsule(0.042, 0.42, skin, skinOpt);
+  armLMesh.position.set(0, -0.22, 0);
   const handL = sphere(0.04, skin, { ...skinOpt, segments: 8 });
-  handL.position.set(-0.2, 0.86, 0);
+  handL.position.set(0, -0.46, 0);
   handL.name = "handL";
-  const handR = sphere(0.04, skin, { ...skinOpt, segments: 8 });
-  handR.position.set(0.2, 0.86, 0);
-  handR.name = "handR";
+  armL.add(armLMesh, handL);
 
-  root.add(legL, legR, calfL, calfR, shoeL, shoeR, torso, neck, headG, armL, armR, handL, handR);
+  const armR = new THREE.Group();
+  armR.name = "armR";
+  armR.position.set(0.26, 1.32, 0);
+  const armRMesh = capsule(0.042, 0.42, skin, skinOpt);
+  armRMesh.position.set(0, -0.22, 0);
+  const handR = sphere(0.04, skin, { ...skinOpt, segments: 8 });
+  handR.position.set(0, -0.46, 0);
+  handR.name = "handR";
+  armR.add(armRMesh, handR);
+
+  root.add(legL, legR, torso, neck, headG, armL, armR);
 
   const label = NPC_LABELS[kind];
   if (label) {
@@ -776,12 +846,8 @@ export function setSitPose(npc, sitting = true) {
   const legR = npc.getObjectByName("legR");
   const calfL = npc.getObjectByName("calfL");
   const calfR = npc.getObjectByName("calfR");
-  const shoeL = npc.getObjectByName("shoeL");
-  const shoeR = npc.getObjectByName("shoeR");
   const armL = npc.getObjectByName("armL");
   const armR = npc.getObjectByName("armR");
-  const handL = npc.getObjectByName("handL");
-  const handR = npc.getObjectByName("handR");
   const torso = npc.getObjectByName("torso");
   const headG = npc.getObjectByName("headG");
   const neckMesh = npc.getObjectByName("neck");
@@ -801,68 +867,59 @@ export function setSitPose(npc, sitting = true) {
       legR.position.set(0.09, 0.55, 0.08);
     }
     if (calfL) {
-      calfL.rotation.x = 0.15;
-      calfL.position.set(-0.09, 0.3, 0.24);
+      calfL.rotation.x = 0.45;
+      calfL.position.set(0, -0.38, 0);
     }
     if (calfR) {
-      calfR.rotation.x = 0.15;
-      calfR.position.set(0.09, 0.3, 0.24);
+      calfR.rotation.x = 0.45;
+      calfR.position.set(0, -0.38, 0);
     }
-    if (shoeL) shoeL.position.set(-0.09, 0.12, 0.34);
-    if (shoeR) shoeR.position.set(0.09, 0.12, 0.34);
     if (torso) torso.position.y = 0.86;
     if (neckMesh) neckMesh.position.y = 1.12;
     if (headG) headG.position.y = 1.24;
     if (armL) {
-      // 坐下时手臂自然垂放在腿上
-      armL.position.set(-0.22, 0.7, 0.1);
-      armL.rotation.x = 1.15;
-      armL.rotation.z = 0.12;
+      armL.position.set(-0.24, 0.72, 0.12);
+      armL.rotation.x = 1.05;
+      armL.rotation.z = 0.1;
     }
     if (armR) {
-      armR.position.set(0.22, 0.7, 0.1);
-      armR.rotation.x = 1.15;
-      armR.rotation.z = -0.12;
+      armR.position.set(0.24, 0.72, 0.12);
+      armR.rotation.x = 1.05;
+      armR.rotation.z = -0.1;
     }
-    if (handL) handL.position.set(-0.18, 0.48, 0.3);
-    if (handR) handR.position.set(0.18, 0.48, 0.3);
-    if (jeans) jeans.position.y = 0.52;
+    if (jeans) jeans.position.y = 0.42;
     if (skirt) skirt.position.y = 0.4;
   } else {
     if (legL) {
       legL.rotation.x = 0;
-      legL.position.set(-0.09, 0.6, 0);
+      legL.position.set(-0.09, 0.78, 0);
     }
     if (legR) {
       legR.rotation.x = 0;
-      legR.position.set(0.09, 0.6, 0);
+      legR.position.set(0.09, 0.78, 0);
     }
     if (calfL) {
       calfL.rotation.x = 0;
-      calfL.position.set(-0.09, 0.24, 0);
+      calfL.position.set(0, -0.38, 0);
     }
     if (calfR) {
       calfR.rotation.x = 0;
-      calfR.position.set(0.09, 0.24, 0);
+      calfR.position.set(0, -0.38, 0);
     }
-    if (shoeL) shoeL.position.set(-0.09, 0.05, 0.04);
-    if (shoeR) shoeR.position.set(0.09, 0.05, 0.04);
     if (torso) torso.position.y = 1.2;
     if (neckMesh) neckMesh.position.y = 1.46;
     if (headG) headG.position.y = 1.58;
     if (armL) {
-      armL.position.set(-0.2, 1.12, 0);
+      armL.position.set(-0.26, 1.32, 0);
       armL.rotation.x = 0;
       armL.rotation.z = 0;
     }
     if (armR) {
-      armR.position.set(0.2, 1.12, 0);
+      armR.position.set(0.26, 1.32, 0);
       armR.rotation.x = 0;
       armR.rotation.z = 0;
     }
-    if (handL) handL.position.set(-0.2, 0.86, 0);
-    if (handR) handR.position.set(0.2, 0.86, 0);
-    if (jeans) jeans.position.y = 0.76;
+    if (jeans) jeans.position.y = 0.62;
     if (skirt) skirt.position.y = 0.58;
   }
 }
@@ -872,13 +929,11 @@ export function setPlayerSit(avatar, sitting = true) {
   const body = avatar.getObjectByName("body") || avatar;
   const legL = avatar.getObjectByName("legL");
   const legR = avatar.getObjectByName("legR");
-  const shoeL = avatar.getObjectByName("shoeL");
-  const shoeR = avatar.getObjectByName("shoeR");
+  const calfL = avatar.getObjectByName("calfL");
+  const calfR = avatar.getObjectByName("calfR");
   const skirt = avatar.getObjectByName("skirt");
   const armL = avatar.getObjectByName("armL");
   const armR = avatar.getObjectByName("armR");
-  const handL = avatar.getObjectByName("handL");
-  const handR = avatar.getObjectByName("handR");
   const headG = avatar.getObjectByName("headG");
   const top = avatar.getObjectByName("top");
   const neck = avatar.getObjectByName("neck");
@@ -887,6 +942,7 @@ export function setPlayerSit(avatar, sitting = true) {
   const sleeveL = avatar.getObjectByName("sleeveL");
   const sleeveR = avatar.getObjectByName("sleeveR");
   const hem = avatar.getObjectByName("hem");
+  const bottom = avatar.getObjectByName("bottom");
 
   avatar.userData.sitting = !!sitting;
 
@@ -899,57 +955,71 @@ export function setPlayerSit(avatar, sitting = true) {
       legR.rotation.x = Math.PI / 2.3;
       legR.position.set(0.09, 0.55, 0.1);
     }
-    if (shoeL) shoeL.position.set(-0.09, 0.2, 0.3);
-    if (shoeR) shoeR.position.set(0.09, 0.2, 0.3);
+    if (calfL) {
+      calfL.rotation.x = 0.4;
+      calfL.position.set(0, -0.36, 0);
+    }
+    if (calfR) {
+      calfR.rotation.x = 0.4;
+      calfR.position.set(0, -0.36, 0);
+    }
     if (skirt) skirt.position.y = 0.32;
     if (hem) hem.position.y = 0.32;
     if (hips) hips.position.y = 0.7;
+    if (bottom) bottom.position.y = 0.35;
     if (top) top.position.y = 0.96;
     if (chest) chest.position.y = 1.0;
-    if (sleeveL) sleeveL.position.y = 0.96;
-    if (sleeveR) sleeveR.position.y = 0.96;
+    if (sleeveL) {
+      sleeveL.position.set(-0.26, 1.0, 0);
+    }
+    if (sleeveR) {
+      sleeveR.position.set(0.26, 1.0, 0);
+    }
     if (neck) neck.position.y = 1.14;
     if (headG) headG.position.y = 1.24;
     if (armL) {
-      armL.rotation.x = 0.35;
-      armL.position.set(-0.22, 0.8, 0.05);
+      armL.rotation.x = 0.85;
+      armL.position.set(-0.26, 1.0, 0.08);
     }
     if (armR) {
-      armR.rotation.x = 0.35;
-      armR.position.set(0.22, 0.8, 0.05);
+      armR.rotation.x = 0.85;
+      armR.position.set(0.26, 1.0, 0.08);
     }
-    if (handL) handL.position.set(-0.22, 0.58, 0.12);
-    if (handR) handR.position.set(0.22, 0.58, 0.12);
   } else {
     if (legL) {
       legL.rotation.x = 0;
-      legL.position.set(-0.09, 0.42, 0);
+      legL.position.set(-0.09, 0.74, 0);
     }
     if (legR) {
       legR.rotation.x = 0;
-      legR.position.set(0.09, 0.42, 0);
+      legR.position.set(0.09, 0.74, 0);
     }
-    if (shoeL) shoeL.position.set(-0.09, 0.05, 0.04);
-    if (shoeR) shoeR.position.set(0.09, 0.05, 0.04);
+    if (calfL) {
+      calfL.rotation.x = 0;
+      calfL.position.set(0, -0.36, 0);
+    }
+    if (calfR) {
+      calfR.rotation.x = 0;
+      calfR.position.set(0, -0.36, 0);
+    }
     if (skirt) skirt.position.y = 0.5;
     if (hem) hem.position.y = 0.5;
     if (hips) hips.position.y = 1.02;
+    if (bottom) bottom.position.y = 0.55;
     if (top) top.position.y = 1.3;
     if (chest) chest.position.y = 1.34;
-    if (sleeveL) sleeveL.position.y = 1.3;
-    if (sleeveR) sleeveR.position.y = 1.3;
+    if (sleeveL) sleeveL.position.set(-0.26, 1.34, 0);
+    if (sleeveR) sleeveR.position.set(0.26, 1.34, 0);
     if (neck) neck.position.y = 1.5;
     if (headG) headG.position.y = 1.58;
     if (armL) {
       armL.rotation.x = 0;
-      armL.position.set(-0.22, 1.08, 0);
+      armL.position.set(-0.28, 1.34, 0);
     }
     if (armR) {
       armR.rotation.x = 0;
-      armR.position.set(0.22, 1.08, 0);
+      armR.position.set(0.28, 1.34, 0);
     }
-    if (handL) handL.position.set(-0.22, 0.8, 0.02);
-    if (handR) handR.position.set(0.22, 0.8, 0.02);
   }
   void body;
 }
@@ -1008,20 +1078,16 @@ export function setPushCart(avatar, enabled) {
 
   const armL = avatar.getObjectByName("armL");
   const armR = avatar.getObjectByName("armR");
-  const handL = avatar.getObjectByName("handL");
-  const handR = avatar.getObjectByName("handR");
 
   if (!enabled) {
     if (armL) {
-      armL.position.set(-0.22, 0.78, 0);
+      armL.position.set(-0.28, 1.34, 0);
       armL.rotation.set(0, 0, 0);
     }
     if (armR) {
-      armR.position.set(0.22, 0.78, 0);
+      armR.position.set(0.28, 1.34, 0);
       armR.rotation.set(0, 0, 0);
     }
-    if (handL) handL.position.set(-0.22, 0.52, 0.02);
-    if (handR) handR.position.set(0.22, 0.52, 0.02);
     return;
   }
 
@@ -1032,15 +1098,13 @@ export function setPushCart(avatar, enabled) {
   mount.add(cart);
 
   if (armL) {
-    armL.position.set(-0.12, 0.86, 0.18);
-    armL.rotation.x = -0.75;
+    armL.position.set(-0.22, 1.2, 0.12);
+    armL.rotation.set(-0.75, 0, 0.1);
   }
   if (armR) {
-    armR.position.set(0.12, 0.86, 0.18);
-    armR.rotation.x = -0.75;
+    armR.position.set(0.22, 1.2, 0.12);
+    armR.rotation.set(-0.75, 0, -0.1);
   }
-  if (handL) handL.position.set(-0.12, 0.84, 0.35);
-  if (handR) handR.position.set(0.12, 0.84, 0.35);
 }
 
 export function attachNpcCart(avatar) {
@@ -1067,10 +1131,12 @@ export function createCartHoldMesh() {
   return cart;
 }
 
-/** 立体走路：腿/臂绕关节摆动 */
+/** 立体走路：大腿摆动 + 小腿屈膝 + 手臂摆动 */
 export function updateWalkAnim(avatar, dt, moving) {
   const legL = avatar.getObjectByName("legL");
   const legR = avatar.getObjectByName("legR");
+  const calfL = avatar.getObjectByName("calfL");
+  const calfR = avatar.getObjectByName("calfR");
   const armL = avatar.getObjectByName("armL");
   const armR = avatar.getObjectByName("armR");
   if (!legL) return;
@@ -1081,6 +1147,8 @@ export function updateWalkAnim(avatar, dt, moving) {
   if (!moving) {
     legL.rotation.x = 0;
     if (legR) legR.rotation.x = 0;
+    if (calfL) calfL.rotation.x = 0;
+    if (calfR) calfR.rotation.x = 0;
     if (!pushing) {
       if (armL) armL.rotation.x = 0;
       if (armR) armR.rotation.x = 0;
@@ -1094,15 +1162,18 @@ export function updateWalkAnim(avatar, dt, moving) {
 
   avatar.userData.walking = true;
   avatar.userData.phase = (avatar.userData.phase || 0) + dt * 10;
-  const s = Math.sin(avatar.userData.phase) * 0.55;
+  const s = Math.sin(avatar.userData.phase) * 0.5;
   legL.rotation.x = s;
   if (legR) legR.rotation.x = -s;
+  // 摆到后方时屈膝，小腿跟着动
+  if (calfL) calfL.rotation.x = Math.max(0, -s) * 0.9;
+  if (calfR) calfR.rotation.x = Math.max(0, s) * 0.9;
   if (pushing) {
-    if (armL) armL.rotation.x = -0.75 + s * 0.04;
-    if (armR) armR.rotation.x = -0.75 - s * 0.04;
+    if (armL) armL.rotation.x = -0.75 + s * 0.06;
+    if (armR) armR.rotation.x = -0.75 - s * 0.06;
   } else {
-    if (armL) armL.rotation.x = -s * 0.5;
-    if (armR) armR.rotation.x = s * 0.5;
+    if (armL) armL.rotation.x = -s * 0.55;
+    if (armR) armR.rotation.x = s * 0.55;
   }
 }
 
