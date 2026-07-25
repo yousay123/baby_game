@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>蜜糖生活 · 3D</title>
   <link rel="stylesheet" href="/src/ui/styles.css" />
 </head>
@@ -22,7 +22,7 @@
         <button type="button" data-scene="kitchen">厨房</button>
         <button type="button" data-scene="dining">餐厅</button>
       </nav>
-      <div class="wallet">钱包 ¥<span id="walletMoney">120</span>
+      <div class="wallet">钱包 ¥<span id="walletMoney">10000</span>
         <small id="walletHint">领零花钱·做家务·做饭可赚钱</small>
       </div>
     </header>
@@ -49,10 +49,11 @@
         <strong id="makeupPanelTitle">蜜糖化妆台</strong>
         <span class="makeup-tip">点选后立即生效</span>
       </div>
+      <div class="bg-styles" id="bgStyles" aria-label="化妆屋背景"></div>
       <div class="char-styles" id="charStyles" aria-label="角色风格"></div>
       <div class="makeup-modes" id="makeupModes">
         <button type="button" data-mode="makeup" class="active">化妆</button>
-        <button type="button" data-mode="dress">换装</button>
+        <button type="button" data-mode="dress" class="">换装</button>
       </div>
       <div class="makeup-tabs" id="makeupTabs"></div>
       <div class="makeup-options" id="makeupOptions"></div>
@@ -68,8 +69,6 @@
         <div class="modal-actions" id="modalActions"></div>
       </div>
     </div>
-
-    <div class="hint" id="clickHint">视角不出房间 · 拖动调整 · 滚轮远近 · WASD走动</div>
   </div>
   <script type="module" src="/src/main.js"></script>
 </body>

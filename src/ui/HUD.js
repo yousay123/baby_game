@@ -1,4 +1,4 @@
-import { SCENES, MAKEUP, MARKET_GOODS, APPLIANCE_NAMES, CHAR_STYLES } from "../core/constants.js";
+import { SCENES, MAKEUP, MARKET_GOODS, APPLIANCE_NAMES, CHAR_STYLES, DISH_RECIPES, ALL_GOODS } from "../core/constants.js";
 import {
   plateDish,
   pickUpPlated,
@@ -10,7 +10,10 @@ import {
   togglePower,
   setPower,
   getPowerMode,
+  isPowerOn,
   startCook,
+  startCookRecipe,
+  analyzeRecipe,
   checkoutCart,
   addToCart,
 } from "../gameplay/systems.js";
@@ -166,9 +169,14 @@ export class HUD {
 
     if (scene === "market") {
       title.textContent = "超市购物";
-      quest.textContent = state.hasCart
-        ? "点货架选购，去收银台结账"
-        : "先点购物车区域拿车";
+      const hintNames = (state.shoppingHint || [])
+        .map((id) => ALL_GOODS.find((g) => g.id === id)?.name || id)
+        .filter(Boolean);
+      quest.textContent = hintNames.length
+        ? `菜谱还缺：${hintNames.join("、")}，点货架选购后去收银台`
+        : state.hasCart
+          ? "点货架选购，去收银台结账"
+          : "先点购物车区域拿车";
       addHead("购物车");
       addItems(state.cart, "空空的");
       addHead("已买购物袋");
@@ -196,6 +204,7 @@ export class HUD {
       if (state.cooked.length) {
         this.addBtn(actions, "装盘 / 装碗", () => this.openPlateModal(state), "btn-coral");
       }
+      this.addBtn(actions, "灶台菜谱", () => this.openCookRecipeModal("stove"));
       if (state.plated.length && !state.carrying) {
         this.addBtn(actions, "端起装好的菜", () => {
           const item = pickUpPlated(state, 0);
@@ -257,7 +266,7 @@ export class HUD {
     if (state.prep.some((i) => i.tag === "veg" && !i.washed)) return "去水槽洗菜";
     if (state.cooked.length && !state.plated.length) return "把菜装进盘子或碗里";
     if (state.plated.length || state.carrying) return "端菜去餐厅";
-    return "开电器，点灶台做饭";
+    return "开电器，点灶台看菜谱做饭";
   }
 
   diningQuest(state) {
@@ -274,6 +283,190 @@ export class HUD {
     btn.textContent = label;
     btn.onclick = onClick;
     parent.appendChild(btn);
+  }
+
+  /** 成品菜样式预览 */
+  renderDishPreview(recipe) {
+    const p = recipe.preview || { plate: "#faf6f0", foods: [] };
+    const foods = (p.foods || [])
+      .map(
+        (f) =>
+          `<span class="dish-blob" style="background:${f.color};left:${f.x}%;top:${f.y}%;width:${f.w}%;height:${f.h}%;border-radius:${f.r}%"></span>`
+      )
+      .join("");
+    const shape = p.bowl ? "dish-preview--bowl" : "";
+    return `<div class="dish-preview ${shape}" style="--plate:${p.plate}">${foods}</div>`;
+  }
+
+  /**
+   * 灶台/电饭煲/烤箱菜谱面板
+   * @param {"stove"|"rice"|"oven"} station
+   */
+  openCookRecipeModal(station = "stove") {
+    const state = this.game.state;
+    const recipes = DISH_RECIPES.filter((r) => r.station === station);
+    const stationName =
+      station === "stove" ? "燃气灶菜谱" : station === "rice" ? "电饭煲菜谱" : "烤箱菜谱";
+    const powerKey = station === "rice" ? "rice" : station === "oven" ? "oven" : "stove";
+    const powerOn = isPowerOn(state, powerKey);
+    const powerLabel = APPLIANCE_NAMES[powerKey] || powerKey;
+
+    const wrap = document.createElement("div");
+    wrap.className = "recipe-panel";
+    wrap.innerHTML = `
+      <p class="recipe-power ${powerOn ? "is-on" : ""}">
+        ${powerLabel}：${powerOn ? "已打开" : "未打开"}
+        ${powerOn ? "" : `<button type="button" class="btn btn-coral btn-sm" data-power-on="${powerKey}">先打开</button>`}
+      </p>
+      <p class="recipe-hint">选一道菜查看材料；缺的可去超市采购</p>
+      <div class="recipe-list"></div>
+      <div class="recipe-detail" hidden></div>
+    `;
+
+    const listEl = wrap.querySelector(".recipe-list");
+    const detailEl = wrap.querySelector(".recipe-detail");
+
+    const goMarketFor = (ingredientIds, names) => {
+      state.shoppingHint = ingredientIds || [];
+      document.getElementById("modal").hidden = true;
+      this.toast(`去超市买：${(names || []).join("、")}`);
+      this.game.go("market");
+    };
+
+    const showDetail = (recipeId) => {
+      const recipe = recipes.find((r) => r.id === recipeId);
+      if (!recipe) return;
+      const { ingredients, needBuy, canCook } = analyzeRecipe(state, recipe);
+      detailEl.hidden = false;
+      detailEl.innerHTML = `
+        <div class="recipe-detail-head">
+          ${this.renderDishPreview(recipe)}
+          <div>
+            <h3 class="recipe-name">${recipe.icon || ""} ${recipe.name}</h3>
+            <p class="recipe-desc">${recipe.desc || ""}</p>
+          </div>
+        </div>
+        <ul class="recipe-ings">
+          ${ingredients
+            .map((ing) => {
+              const cls =
+                ing.status === "missing"
+                  ? "is-missing"
+                  : ing.status === "have"
+                    ? "is-have"
+                    : "is-warn";
+              const buyBtn =
+                ing.status === "missing"
+                  ? `<button type="button" class="btn btn-coral btn-sm" data-buy="${ing.id}" data-buy-name="${ing.name}">去超市买</button>`
+                  : "";
+              return `<li class="${cls}">
+                <span class="ing-swatch" style="background:${ing.color || "#ccc"}"></span>
+                <span class="ing-name">${ing.name}</span>
+                <span class="ing-status">${ing.label}</span>
+                ${buyBtn}
+              </li>`;
+            })
+            .join("")}
+        </ul>
+        <div class="recipe-actions">
+          ${
+            needBuy.length
+              ? `<button type="button" class="btn btn-coral" data-buy-all="1">缺料：去超市采购</button>`
+              : canCook
+                ? `<button type="button" class="btn btn-coral" data-cook="${recipe.id}">开始做${recipe.name}</button>`
+                : `<p class="recipe-block">${
+                    ingredients.find((i) => i.status === "needWash")
+                      ? "请先去水槽洗菜"
+                      : ingredients.find((i) => i.status === "inFridge")
+                        ? "请先从冰箱取出到操作台"
+                        : ingredients.find((i) => i.status === "inBag")
+                          ? "请先把购物袋放进冰箱再取出"
+                          : state.cooking
+                            ? "正在做饭中…"
+                            : !isPowerOn(state, powerKey)
+                              ? `请先打开${powerLabel}`
+                              : "材料还没准备好"
+                  }</p>`
+          }
+        </div>
+      `;
+
+      detailEl.querySelectorAll("[data-buy]").forEach((btn) => {
+        btn.onclick = () => goMarketFor([btn.dataset.buy], [btn.dataset.buyName]);
+      });
+      const buyAll = detailEl.querySelector("[data-buy-all]");
+      if (buyAll) {
+        buyAll.onclick = () =>
+          goMarketFor(
+            needBuy.map((i) => i.id),
+            needBuy.map((i) => i.name)
+          );
+      }
+      const cookBtn = detailEl.querySelector("[data-cook]");
+      if (cookBtn) {
+        cookBtn.onclick = () => {
+          if (!isPowerOn(state, powerKey)) {
+            setPower(state, powerKey, "on");
+            this.game.scenes.current?.applyPower?.(state);
+          }
+          const res = startCookRecipe(state, recipe.id, (r) => {
+            this.toast(`${r.dish}做好啦！去装盘台装盘/装碗～`);
+          });
+          this.toast(res.msg);
+          if (res.ok) document.getElementById("modal").hidden = true;
+          else showDetail(recipe.id);
+        };
+      }
+    };
+
+    recipes.forEach((recipe) => {
+      const { needBuy, canCook, ingredients } = analyzeRecipe(state, recipe);
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "recipe-card";
+      const miss = needBuy.length
+        ? `缺${needBuy.length}样`
+        : canCook
+          ? "可以开做"
+          : ingredients.some((i) => i.status === "needWash")
+            ? "需洗菜"
+            : "备料中";
+      card.innerHTML = `
+        ${this.renderDishPreview(recipe)}
+        <div class="recipe-card-meta">
+          <strong>${recipe.name}</strong>
+          <span class="recipe-card-tag ${needBuy.length ? "tag-miss" : canCook ? "tag-ok" : "tag-warn"}">${miss}</span>
+        </div>
+      `;
+      card.onclick = () => {
+        listEl.querySelectorAll(".recipe-card").forEach((c) => c.classList.remove("is-active"));
+        card.classList.add("is-active");
+        showDetail(recipe.id);
+      };
+      listEl.appendChild(card);
+    });
+
+    wrap.querySelector("[data-power-on]")?.addEventListener("click", (e) => {
+      const key = e.currentTarget.dataset.powerOn;
+      setPower(state, key, "on");
+      this.game.scenes.current?.applyPower?.(state);
+      this.toast(`${APPLIANCE_NAMES[key] || key}已打开`);
+      this.openCookRecipeModal(station);
+    });
+
+    // 默认展开（灶台优先西红柿炒鸡蛋）
+    const preferred = recipes.find((r) => r.id === "tomatoEgg") || recipes[0];
+    if (preferred) {
+      const cards = [...listEl.querySelectorAll(".recipe-card")];
+      const idx = recipes.findIndex((r) => r.id === preferred.id);
+      const card = cards[idx] || cards[0];
+      if (card) {
+        card.classList.add("is-active");
+        showDetail(preferred.id);
+      }
+    }
+
+    this.openModal(stationName, wrap, [{ label: "关闭", className: "btn-ghost" }]);
   }
 
   openPlateModal(state) {
@@ -319,6 +512,7 @@ export class HUD {
     const options = document.getElementById("makeupOptions");
     const title = document.getElementById("makeupPanelTitle");
     const stylesEl = document.getElementById("charStyles");
+    const bgEl = document.getElementById("bgStyles");
     if (!tabs || !options) return;
 
     const modeTabs = () => (this.makeupMode === "dress" ? MAKEUP.dressTabs : MAKEUP.makeupTabs);
@@ -331,6 +525,17 @@ export class HUD {
     };
 
     const render = () => {
+      if (bgEl) {
+        const selBg = this.game.state.makeup.bg || "bgRose";
+        bgEl.innerHTML = `<span class="bg-styles-label">背景</span>${MAKEUP.bg
+          .map(
+            (b) =>
+              `<button type="button" data-bg="${b.id}" class="bg-style-btn ${selBg === b.id ? "active" : ""}" title="${b.desc}">
+                <span>${b.icon}</span>
+              </button>`
+          )
+          .join("")}`;
+      }
       if (stylesEl) {
         stylesEl.innerHTML = CHAR_STYLES.map(
           (s) => `<button type="button" data-style="${s.id}" class="char-style-btn ${this.game.state.charStyle === s.id ? "active" : ""}" title="${s.desc}">
@@ -356,7 +561,7 @@ export class HUD {
         .join("");
       const list = MAKEUP[this.makeupTab] || [];
       const selected = this.game.state.makeup[this.makeupTab];
-      const big = this.makeupTab === "prop" || this.makeupTab === "accessory";
+      const big = ["prop", "hat", "jewelry", "baby"].includes(this.makeupTab);
       options.classList.toggle("options-props", big);
       options.innerHTML = list
         .map((o) => {
@@ -378,6 +583,15 @@ export class HUD {
         .join("");
     };
 
+    bgEl?.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-bg]");
+      if (!b) return;
+      this.game.state.makeup.bg = b.dataset.bg;
+      applyToViews();
+      const opt = MAKEUP.bg.find((x) => x.id === b.dataset.bg);
+      this.toast(`背景：${opt?.name || ""}`);
+      render();
+    });
     stylesEl?.addEventListener("click", (e) => {
       const b = e.target.closest("[data-style]");
       if (!b) return;
@@ -495,4 +709,4 @@ export class HUD {
   }
 }
 
-export { washPrep, togglePower, setPower, startCook, addToCart };
+export { washPrep, togglePower, setPower, startCook, startCookRecipe, addToCart };

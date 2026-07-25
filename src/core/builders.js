@@ -360,8 +360,8 @@ export function createEmbeddedDoor(doorData, wall, alongMid, xPos, zPos, doorW, 
   });
 
   if (doorData.label) {
-    const spr = makeLabelSprite(doorData.label);
-    spr.position.set(0, doorH + 0.12, 0);
+    const spr = makeLabelSprite(doorData.label, { scaleX: 0.7, scaleY: 0.17, fontSize: 30 });
+    spr.position.set(0, doorH + 0.14, 0);
     g.add(spr);
   }
 
@@ -472,14 +472,14 @@ export function addRoomDressing(root, { width, depth, height, style, accent = 0x
   return g;
 }
 
-export function makeLabelSprite(text, { color = "#fff", bg = "rgba(40,16,28,0.78)", scaleX = 0.55, scaleY = 0.14, fontSize = 26 } = {}) {
+export function makeLabelSprite(text, { color = "#fff", bg = "rgba(40,16,28,0.78)", scaleX = 0.62, scaleY = 0.16, fontSize = 28 } = {}) {
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 64;
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, 256, 64);
   ctx.fillStyle = bg;
-  roundRect(ctx, 12, 12, 232, 40, 14);
+  roundRect(ctx, 8, 10, 240, 44, 16);
   ctx.fill();
   ctx.fillStyle = color;
   ctx.font = `bold ${fontSize}px Microsoft YaHei, sans-serif`;
@@ -496,7 +496,7 @@ export function makeLabelSprite(text, { color = "#fff", bg = "rgba(40,16,28,0.78
     sizeAttenuation: true,
   });
   const sprite = new THREE.Sprite(matSprite);
-  sprite.scale.set(Math.min(scaleX, 0.52), Math.min(scaleY, 0.13), 1);
+  sprite.scale.set(scaleX, scaleY, 1);
   sprite.center.set(0.5, 0.5);
   sprite.renderOrder = 2;
   sprite.userData.isNameTag = true;

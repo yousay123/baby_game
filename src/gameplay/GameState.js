@@ -7,12 +7,13 @@ function cloneItem(item) {
 export function createGameState() {
   const style = CHAR_STYLES[0];
   return {
-    money: 120,
+    money: 10000,
     flags: {},
     stats: { earned: 0, spent: 0 },
     hasCart: false,
     cart: [],
     bag: [],
+    shoppingHint: [],
     fridge: [],
     prep: [],
     holding: null,

@@ -688,7 +688,14 @@ export function makeupToAnimeOpt(state, extra = {}) {
   const hairOpt = findMakeupOption("hair", state.makeup.hair);
   const top = findMakeupOption("top", state.makeup.top);
   const bottom = findMakeupOption("bottom", state.makeup.bottom);
-  const acc = findMakeupOption("accessory", state.makeup.accessory);
+  const hat = findMakeupOption("hat", state.makeup.hat || "hat0");
+  const jew = findMakeupOption("jewelry", state.makeup.jewelry || "jew0");
+  const baby = findMakeupOption("baby", state.makeup.baby || "baby0");
+  const propOpt = findMakeupOption("prop", state.makeup.prop || "prop0");
+  // 旧存档回退：仅有 accessory 时
+  const acc = findMakeupOption("accessory", state.makeup.accessory || "acc4");
+  const useLegacy = !state.makeup.hat && !state.makeup.jewelry;
+
   const hc = hairOpt.color;
   return {
     ...ANIME_PRESETS.player,
@@ -700,16 +707,29 @@ export function makeupToAnimeOpt(state, extra = {}) {
     lip: lip.color,
     blush: blush.color,
     eyeshadow: eye.color,
-    crown: !!acc.crown,
-    earrings: !!acc.earrings,
-    necklace: !!acc.necklace,
-    glasses: !!acc.glasses,
-    flower: !!acc.flower,
-    beret: !!acc.beret,
-    beretColor: acc.color,
-    star: !!acc.star,
-    butterfly: !!acc.butterfly,
-    catEar: !!acc.catEar,
+    crown: useLegacy ? !!acc.crown : hat.kind === "crown",
+    earrings: useLegacy ? !!acc.earrings : !!jew.earrings,
+    necklace: useLegacy ? !!acc.necklace : !!jew.necklace,
+    glasses: useLegacy ? !!acc.glasses : !!jew.glasses,
+    flower: useLegacy ? !!acc.flower : hat.kind === "flower",
+    beret: useLegacy ? !!acc.beret : hat.kind === "beret",
+    beretColor: useLegacy ? acc.color : hat.color,
+    star: useLegacy ? !!acc.star : hat.kind === "star",
+    butterfly: useLegacy ? !!acc.butterfly : hat.kind === "butterfly",
+    catEar: useLegacy ? !!acc.catEar : hat.kind === "catEar",
+    cap: hat.kind === "cap",
+    capColor: hat.color,
+    watch: !!jew.watch,
+    watchColor: jew.color || "#ff6b8a",
+    bracelet: !!jew.bracelet,
+    braceletColor: jew.color || "#FFC94A",
+    babyKind: baby.kind || "none",
+    babyColor: baby.color,
+    babyWrap: baby.wrap,
+    prop: propOpt.prop || "none",
+    propSlot: propOpt.slot || "hand",
+    propColor: propOpt.color,
+    bg: state.makeup.bg || "bgRose",
     style: "twin",
     ...extra,
   };

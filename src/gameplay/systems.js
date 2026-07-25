@@ -1,5 +1,5 @@
 import { emit, cloneItem } from "./GameState.js";
-import { RECIPES } from "../core/constants.js";
+import { RECIPES, DISH_RECIPES, ALL_GOODS } from "../core/constants.js";
 
 export function plateDish(state, cookedIndex, vessel) {
   if (cookedIndex < 0 || cookedIndex >= state.cooked.length) return false;
@@ -54,6 +54,84 @@ export function hasWashedVeg(state) {
   return state.prep.some((i) => i.tag === "veg" && i.washed);
 }
 
+export function findItemIn(list, ingredientId) {
+  return (list || []).find((i) => i.id === ingredientId) || null;
+}
+
+/** 厨房可用：操作台 prep 或冰箱 fridge */
+export function getIngredientKitchenStatus(state, ingredientId) {
+  const inPrep = findItemIn(state.prep, ingredientId);
+  const inFridge = findItemIn(state.fridge, ingredientId);
+  const inBag = findItemIn(state.bag, ingredientId);
+  const goods = ALL_GOODS.find((g) => g.id === ingredientId);
+  return {
+    id: ingredientId,
+    name: goods?.name || ingredientId,
+    tag: goods?.tag,
+    color: goods?.color,
+    icon: goods?.icon,
+    inPrep: !!inPrep,
+    inFridge: !!inFridge,
+    inBag: !!inBag,
+    have: !!(inPrep || inFridge),
+    washed: !!(inPrep && inPrep.washed),
+    needBuy: !(inPrep || inFridge || inBag),
+  };
+}
+
+export function analyzeRecipe(state, recipe) {
+  const ingredients = (recipe.ingredients || []).map((ing) => {
+    const st = getIngredientKitchenStatus(state, ing.id);
+    const needWash = !!ing.needWash;
+    let status = "have";
+    let label = "已有";
+    if (st.needBuy) {
+      status = "missing";
+      label = "需购买";
+    } else if (st.inBag && !st.have) {
+      status = "inBag";
+      label = "已购·请进冰箱";
+    } else if (needWash && st.inPrep && !st.washed) {
+      status = "needWash";
+      label = "已有·需洗净";
+    } else if (!st.inPrep && st.inFridge) {
+      status = "inFridge";
+      label = "冰箱里·请取出";
+    } else {
+      status = "have";
+      label = needWash && st.washed ? "已有·已洗" : "已有";
+    }
+    return {
+      ...ing,
+      ...st,
+      needWash,
+      status,
+      label,
+    };
+  });
+  const needBuy = ingredients.filter((i) => i.status === "missing");
+  const canCook =
+    !state.cooking &&
+    ingredients.every((i) => {
+      if (i.status === "missing" || i.status === "inBag" || i.status === "inFridge") return false;
+      if (i.needWash && !i.washed) return false;
+      return i.inPrep;
+    });
+  return { ingredients, needBuy, canCook };
+}
+
+export function consumePrepIngredients(state, ingredients) {
+  ingredients.forEach((ing) => {
+    let idx = -1;
+    if (ing.needWash) {
+      idx = state.prep.findIndex((i) => i.id === ing.id && i.washed);
+    }
+    if (idx < 0) idx = state.prep.findIndex((i) => i.id === ing.id);
+    if (idx >= 0) state.prep.splice(idx, 1);
+  });
+  emit(state);
+}
+
 export function consumePrepTags(state, tags) {
   tags.forEach((tag) => {
     let idx = -1;
@@ -68,28 +146,38 @@ export function consumePrepTags(state, tags) {
   emit(state);
 }
 
-export function startCook(state, type, onDone) {
+/** 按菜谱 id 开做 */
+export function startCookRecipe(state, recipeId, onDone) {
   if (state.cooking) return { ok: false, msg: "正在做饭中…" };
-  const recipe = RECIPES[type];
+  const recipe = DISH_RECIPES.find((r) => r.id === recipeId);
   if (!recipe) return { ok: false, msg: "未知菜谱" };
   if (recipe.power && !isPowerOn(state, recipe.power)) {
-    return { ok: false, msg: `请先打开${recipe.power === "stove" ? "燃气灶" : recipe.power === "rice" ? "电饭煲" : "烤箱"}` };
+    const tip =
+      recipe.power === "stove" ? "燃气灶" : recipe.power === "rice" ? "电饭煲" : "烤箱";
+    return { ok: false, msg: `请先打开${tip}` };
   }
-  if (!state.prep.length) {
-    return { ok: false, msg: "操作台没有食材，先从冰箱取出～" };
+  const analysis = analyzeRecipe(state, recipe);
+  if (analysis.needBuy.length) {
+    return {
+      ok: false,
+      msg: `还缺：${analysis.needBuy.map((i) => i.name).join("、")}，去超市买吧`,
+      needBuy: analysis.needBuy,
+    };
   }
-  const missing = recipe.need.filter((t) => !hasPrepTag(state, t));
-  if (missing.length) {
-    return { ok: false, msg: `还缺：${missing.join("、")}` };
+  if (!analysis.canCook) {
+    const wash = analysis.ingredients.find((i) => i.status === "needWash");
+    if (wash) return { ok: false, msg: `${wash.name}还没洗，先去水槽洗菜～` };
+    const fr = analysis.ingredients.find((i) => i.status === "inFridge");
+    if (fr) return { ok: false, msg: `${fr.name}在冰箱里，请先取出到操作台` };
+    const bag = analysis.ingredients.find((i) => i.status === "inBag");
+    if (bag) return { ok: false, msg: `${bag.name}还在购物袋，请先放进冰箱再取出` };
+    return { ok: false, msg: "材料还没准备好～" };
   }
-  if (recipe.needWashed && !hasWashedVeg(state)) {
-    return { ok: false, msg: "蔬菜还没洗，先去水槽洗菜～" };
-  }
-  if (type === "stirfry" && !isPowerOn(state, "hood")) {
+  if (recipe.needHood && !isPowerOn(state, "hood")) {
     setPower(state, "hood", "on");
   }
   state.cooking = true;
-  consumePrepTags(state, recipe.need);
+  consumePrepIngredients(state, recipe.ingredients);
   setTimeout(() => {
     state.cooking = false;
     state.cooked.push({
@@ -97,12 +185,20 @@ export function startCook(state, type, onDone) {
       icon: recipe.icon,
       name: recipe.name,
       vesselDefault: recipe.vesselDefault,
+      recipeId: recipe.id,
     });
     emit(state);
     if (onDone) onDone(recipe);
   }, recipe.time);
   emit(state);
-  return { ok: true, msg: `正在${recipe.name}…` };
+  return { ok: true, msg: `正在做${recipe.name}…` };
+}
+
+/** 兼容旧调用 startCook("stirfry") */
+export function startCook(state, type, onDone) {
+  const mapped = RECIPES[type];
+  if (mapped?.id) return startCookRecipe(state, mapped.id, onDone);
+  return { ok: false, msg: "请从菜谱菜单选择要做的菜" };
 }
 
 export function putBagInFridge(state) {
@@ -178,6 +274,7 @@ export function checkoutCart(state) {
   state.bag.push(...state.cart.map((i) => cloneItem({ ...i, washed: false })));
   state.cart = [];
   state.hasCart = false;
+  state.shoppingHint = [];
   state.stats = state.stats || {};
   state.stats.spent = (state.stats.spent || 0) + total;
   emit(state);

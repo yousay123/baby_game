@@ -214,16 +214,16 @@ export function createPlayerAvatar(state) {
   handR.name = "handR";
   body.add(handL, handR);
 
-  // Neck
-  const neck = capsule(0.048, 0.08, skin, skinOpt);
-  neck.position.y = 1.46;
+  // Neck — 加长并与头部重叠，消除断裂感
+  const neck = capsule(0.055, 0.14, skin, skinOpt);
+  neck.position.y = 1.5;
   neck.name = "neck";
   body.add(neck);
 
-  // Head group
+  // Head group — 略下移，下巴盖住脖子上缘
   const headG = new THREE.Group();
   headG.name = "headG";
-  headG.position.y = 1.62;
+  headG.position.y = 1.58;
   body.add(headG);
 
   const headR = 0.145;
@@ -300,19 +300,21 @@ export function createPlayerAvatar(state) {
   const earrings = new THREE.Group();
   earrings.name = "earrings";
   [-1, 1].forEach((dir) => {
-    const e = sphere(0.018, 0xfff8f0, { segments: 8 });
-    e.position.set(dir * 0.14, -0.02, 0.04);
-    earrings.add(e);
+    const e = sphere(0.02, 0xfff8f0, { segments: 8 });
+    e.position.set(dir * 0.148, -0.05, 0.05);
+    const drop = sphere(0.012, accent, { segments: 6 });
+    drop.position.set(dir * 0.148, -0.08, 0.05);
+    earrings.add(e, drop);
   });
   headG.add(earrings);
 
   const necklace = new THREE.Group();
   necklace.name = "necklace";
-  const nCord = cyl(0.002, 0.002, 0.12, accent, CLOTH_OPT);
+  const nCord = cyl(0.002, 0.002, 0.14, accent, CLOTH_OPT);
   nCord.rotation.z = Math.PI / 2;
-  nCord.position.set(0, 1.14, 0.06);
-  const bead = sphere(0.02, dress, { segments: 8 });
-  bead.position.set(0, 1.1, 0.08);
+  nCord.position.set(0, 1.42, 0.08);
+  const bead = sphere(0.022, dress, { segments: 8 });
+  bead.position.set(0, 1.38, 0.1);
   necklace.add(nCord, bead);
   body.add(necklace);
 
@@ -340,6 +342,17 @@ export function createPlayerAvatar(state) {
   beret.visible = false;
   headG.add(beret);
 
+  const cap = new THREE.Group();
+  cap.name = "cap";
+  const capDome = sphere(0.1, 0xff8ab0, { segments: 12 });
+  capDome.scale.set(1.15, 0.55, 1.1);
+  capDome.position.set(0, 0.12, -0.02);
+  const brim = softBox(0.14, 0.02, 0.1, 0xff8ab0);
+  brim.position.set(0, 0.08, 0.1);
+  cap.add(capDome, brim);
+  cap.visible = false;
+  headG.add(cap);
+
   const starClip = sphere(0.03, accent, { segments: 8 });
   starClip.position.set(-0.1, 0.1, 0.1);
   starClip.name = "starClip";
@@ -362,6 +375,20 @@ export function createPlayerAvatar(state) {
   });
   catEar.visible = false;
   headG.add(catEar);
+
+  // 手表 — 左手腕
+  const watch = softBox(0.05, 0.035, 0.04, 0xff6b8a, CLOTH_OPT);
+  watch.position.set(-0.22, 0.78, 0.04);
+  watch.name = "watch";
+  watch.visible = false;
+  body.add(watch);
+
+  // 手链 — 右手腕
+  const bracelet = cyl(0.035, 0.035, 0.02, accent, { metalness: 0.4, roughness: 0.3, segments: 12 });
+  bracelet.position.set(0.22, 0.78, 0.02);
+  bracelet.name = "bracelet";
+  bracelet.visible = false;
+  body.add(bracelet);
 
   const hold = new THREE.Group();
   hold.name = "hold";
@@ -448,9 +475,12 @@ export function applyMakeup(avatar, state) {
   const glasses = avatar.getObjectByName("glasses");
   const flower = avatar.getObjectByName("flower");
   const beret = avatar.getObjectByName("beret");
+  const cap = avatar.getObjectByName("cap");
   const starClip = avatar.getObjectByName("starClip");
   const butterfly = avatar.getObjectByName("butterfly");
   const catEar = avatar.getObjectByName("catEar");
+  const watch = avatar.getObjectByName("watch");
+  const bracelet = avatar.getObjectByName("bracelet");
   if (crown) crown.visible = !!opt.crown;
   if (earrings) earrings.visible = !!opt.earrings;
   if (necklace) necklace.visible = !!opt.necklace;
@@ -460,9 +490,100 @@ export function applyMakeup(avatar, state) {
     beret.visible = !!opt.beret;
     if (opt.beretColor) setMatColor(beret, opt.beretColor);
   }
+  if (cap) {
+    cap.visible = !!opt.cap;
+    if (opt.capColor) {
+      cap.traverse((c) => {
+        if (c.isMesh) setMatColor(c, opt.capColor);
+      });
+    }
+  }
   if (starClip) starClip.visible = !!opt.star;
   if (butterfly) butterfly.visible = !!opt.butterfly;
   if (catEar) catEar.visible = !!opt.catEar;
+  if (watch) {
+    watch.visible = !!opt.watch;
+    if (opt.watchColor) setMatColor(watch, opt.watchColor);
+  }
+  if (bracelet) {
+    bracelet.visible = !!opt.bracelet;
+    if (opt.braceletColor) setMatColor(bracelet, opt.braceletColor);
+  }
+
+  syncDressHold(avatar, opt);
+}
+
+/** 3D 手持：宝宝 / 道具按槽位挂到胳膊或手上 */
+function syncDressHold(avatar, opt) {
+  const hold = avatar.getObjectByName("hold");
+  if (!hold) return;
+  while (hold.children.length) hold.remove(hold.children[0]);
+
+  const hasBaby = opt.babyKind && opt.babyKind !== "none";
+  if (hasBaby) {
+    hold.position.set(0.02, 0.88, 0.2);
+    hold.add(createBabyHoldMesh(opt));
+    return;
+  }
+
+  const prop = opt.prop;
+  if (!prop || prop === "none") {
+    hold.position.set(0.28, 0.82, 0.1);
+    return;
+  }
+  if (opt.propSlot === "arm") {
+    hold.position.set(-0.26, 0.88, 0.12);
+  } else {
+    hold.position.set(0.28, 0.82, 0.1);
+  }
+  hold.add(createDressPropMesh(prop, opt.propColor));
+}
+
+function createBabyHoldMesh(opt) {
+  const g = new THREE.Group();
+  const c = hex3(opt.babyColor || "#ffb0c8");
+  if (opt.babyKind === "babyBear" || opt.babyKind === "babyBunny") {
+    const body = softBox(0.14, 0.16, 0.12, c);
+    body.position.y = 0.02;
+    const head = sphere(0.07, c, { segments: 10 });
+    head.position.y = 0.12;
+    g.add(body, head);
+  } else {
+    const wrap = softBox(0.14, 0.16, 0.12, hex3(opt.babyWrap || "#ffe0ec"));
+    const head = sphere(0.065, hex3("#FFD2B8"), { segments: 10 });
+    head.position.y = 0.12;
+    g.add(wrap, head);
+  }
+  return g;
+}
+
+function createDressPropMesh(prop, color) {
+  const c = hex3(color || "#FF6B8A");
+  const g = new THREE.Group();
+  if (prop === "bag") {
+    const bag = softBox(0.12, 0.14, 0.06, c);
+    g.add(bag);
+  } else if (prop === "wand") {
+    const stick = cyl(0.012, 0.012, 0.28, hex3("#FFC94A"));
+    stick.position.y = 0.1;
+    const tip = sphere(0.04, hex3("#FFC94A"), { segments: 8 });
+    tip.position.y = 0.28;
+    g.add(stick, tip);
+  } else if (prop === "lollipop") {
+    const stick = cyl(0.01, 0.01, 0.18, hex3("#FFE08A"));
+    const candy = sphere(0.06, c, { segments: 10 });
+    candy.position.y = 0.12;
+    g.add(stick, candy);
+  } else if (prop === "book") {
+    g.add(softBox(0.12, 0.16, 0.04, c));
+  } else if (prop === "bouquet") {
+    g.add(sphere(0.09, c, { segments: 10 }));
+  } else if (prop === "teddy") {
+    g.add(sphere(0.08, c, { segments: 10 }));
+  } else {
+    g.add(softBox(0.1, 0.12, 0.08, c));
+  }
+  return g;
 }
 
 export function createNPC(kind) {
@@ -787,8 +908,8 @@ export function setPlayerSit(avatar, sitting = true) {
     if (chest) chest.position.y = 1.0;
     if (sleeveL) sleeveL.position.y = 0.96;
     if (sleeveR) sleeveR.position.y = 0.96;
-    if (neck) neck.position.y = 1.12;
-    if (headG) headG.position.y = 1.28;
+    if (neck) neck.position.y = 1.14;
+    if (headG) headG.position.y = 1.24;
     if (armL) {
       armL.rotation.x = 0.35;
       armL.position.set(-0.22, 0.8, 0.05);
@@ -817,8 +938,8 @@ export function setPlayerSit(avatar, sitting = true) {
     if (chest) chest.position.y = 1.34;
     if (sleeveL) sleeveL.position.y = 1.3;
     if (sleeveR) sleeveR.position.y = 1.3;
-    if (neck) neck.position.y = 1.46;
-    if (headG) headG.position.y = 1.62;
+    if (neck) neck.position.y = 1.5;
+    if (headG) headG.position.y = 1.58;
     if (armL) {
       armL.rotation.x = 0;
       armL.position.set(-0.22, 1.08, 0);

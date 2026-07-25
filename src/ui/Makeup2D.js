@@ -11,72 +11,144 @@ function $(id, root) {
   return (root || document).querySelector(`#${id}`);
 }
 
-function drawPropSVG(prop, color) {
+function drawPropSVG(prop, color, slot = "hand") {
   const c = color || "#FF6B8A";
+  // slot: hand=右手握持 / arm=挂在左小臂 / none
+  const origin =
+    slot === "arm"
+      ? "translate(78 420)"
+      : slot === "hand"
+        ? "translate(268 470)"
+        : "translate(268 470)";
+
   switch (prop) {
     case "wand":
-      return `<g transform="translate(275 310)">
-        <rect x="-5" y="0" width="10" height="100" rx="4" fill="${GOLD}"/>
-        <polygon points="0,-26 9,-5 30,-5 12,7 19,28 0,15 -19,28 -12,7 -30,-5 -9,-5" fill="${GOLD}"/>
+      return `<g transform="${origin}">
+        <rect x="-5" y="-90" width="10" height="100" rx="4" fill="${GOLD}"/>
+        <polygon points="0,-116 9,-95 30,-95 12,-83 19,-62 0,-75 -19,-62 -12,-83 -30,-95 -9,-95" fill="${GOLD}"/>
       </g>`;
     case "bouquet":
-      return `<g transform="translate(278 350)">
-        <ellipse cx="0" cy="0" rx="40" ry="48" fill="${c}"/>
-        <ellipse cx="-16" cy="-8" rx="14" ry="20" fill="#9B7EC8"/>
-        <ellipse cx="14" cy="-6" rx="12" ry="18" fill="#C9A7FF"/>
-        <rect x="-6" y="38" width="12" height="48" rx="4" fill="#6B8F5E"/>
+      return `<g transform="${origin}">
+        <ellipse cx="0" cy="-20" rx="36" ry="44" fill="${c}"/>
+        <ellipse cx="-14" cy="-28" rx="12" ry="18" fill="#9B7EC8"/>
+        <ellipse cx="12" cy="-26" rx="11" ry="16" fill="#C9A7FF"/>
+        <rect x="-5" y="18" width="10" height="40" rx="3" fill="#6B8F5E"/>
       </g>`;
     case "balloon":
-      return `<g transform="translate(282 290)">
-        <ellipse cx="0" cy="0" rx="34" ry="42" fill="${c}"/>
-        <path d="M0 42 Q6 68 0 96" fill="none" stroke="#888" stroke-width="2"/>
+      return `<g transform="${origin}">
+        <ellipse cx="8" cy="-70" rx="28" ry="36" fill="${c}"/>
+        <path d="M8 -34 Q14 -10 8 20" fill="none" stroke="#888" stroke-width="2"/>
       </g>`;
     case "teddy":
-      return `<g transform="translate(272 365)">
-        <circle cx="-20" cy="-26" r="15" fill="${c}"/><circle cx="20" cy="-26" r="15" fill="${c}"/>
-        <ellipse cx="0" cy="8" rx="36" ry="40" fill="${c}"/>
-        <circle cx="0" cy="-16" r="26" fill="${c}"/>
-        <circle cx="-9" cy="-20" r="3.5" fill="#3A2820"/><circle cx="9" cy="-20" r="3.5" fill="#3A2820"/>
+      return `<g transform="${origin}">
+        <circle cx="-16" cy="-36" r="12" fill="${c}"/><circle cx="16" cy="-36" r="12" fill="${c}"/>
+        <ellipse cx="0" cy="-8" rx="30" ry="34" fill="${c}"/>
+        <circle cx="0" cy="-28" r="20" fill="${c}"/>
       </g>`;
     case "parasol":
-      return `<g transform="translate(272 210)">
-        <path d="M0 18 Q-68 18 -68 38 Q0 6 68 38 Q68 18 0 18" fill="${c}"/>
-        <line x1="0" y1="18" x2="0" y2="150" stroke="#C89878" stroke-width="5"/>
+      return `<g transform="${origin}">
+        <path d="M0 -80 Q-60 -80 -60 -55 Q0 -95 60 -55 Q60 -80 0 -80" fill="${c}"/>
+        <line x1="0" y1="-80" x2="0" y2="30" stroke="#C89878" stroke-width="5"/>
       </g>`;
     case "cake":
-      return `<g transform="translate(272 385)">
-        <rect x="-38" y="18" width="76" height="26" rx="5" fill="#FFE0EC"/>
-        <rect x="-30" y="-4" width="60" height="24" rx="5" fill="#FFB0C8"/>
-        <rect x="-22" y="-26" width="44" height="22" rx="5" fill="#FFF5F8"/>
+      return `<g transform="${origin}">
+        <rect x="-32" y="-10" width="64" height="22" rx="4" fill="#FFE0EC"/>
+        <rect x="-26" y="-28" width="52" height="20" rx="4" fill="#FFB0C8"/>
+        <rect x="-20" y="-44" width="40" height="18" rx="4" fill="#FFF5F8"/>
       </g>`;
     case "bag":
-      return `<g transform="translate(278 365)">
-        <path d="M-34 0 L-38 66 Q0 78 38 66 L34 0 Z" fill="${c}"/>
-        <path d="M-26 0 Q-26 -26 0 -26 Q26 -26 26 0" fill="none" stroke="${c}" stroke-width="7"/>
+      // 手提包挂在小胳膊上
+      return `<g transform="translate(78 400)">
+        <path d="M-22 -8 L-26 48 Q0 58 26 48 L22 -8 Z" fill="${c}"/>
+        <path d="M-16 -8 Q-16 -32 0 -32 Q16 -32 16 -8" fill="none" stroke="${c}" stroke-width="6" stroke-linecap="round"/>
       </g>`;
     case "lantern":
-      return `<g transform="translate(278 345)">
-        <rect x="-20" y="0" width="40" height="52" rx="7" fill="${c}"/>
-        <rect x="-14" y="8" width="28" height="36" rx="4" fill="#FFF8E0" opacity="0.85"/>
+      return `<g transform="${origin}">
+        <rect x="-16" y="-40" width="32" height="42" rx="6" fill="${c}"/>
+        <rect x="-11" y="-32" width="22" height="28" rx="3" fill="#FFF8E0" opacity="0.85"/>
       </g>`;
     case "lollipop":
-      return `<g transform="translate(278 325)">
-        <circle cx="0" cy="0" r="34" fill="${c}"/>
-        <rect x="-5" y="32" width="10" height="85" rx="4" fill="#FFE08A"/>
+      return `<g transform="${origin}">
+        <circle cx="0" cy="-50" r="28" fill="${c}"/>
+        <rect x="-4" y="-22" width="8" height="70" rx="3" fill="#FFE08A"/>
       </g>`;
     case "violin":
-      return `<g transform="translate(278 345)">
-        <ellipse cx="0" cy="18" rx="20" ry="48" fill="${c}"/>
-        <rect x="-4" y="-48" width="8" height="52" fill="#A07040"/>
+      return `<g transform="${origin}">
+        <ellipse cx="0" cy="-10" rx="16" ry="40" fill="${c}"/>
+        <rect x="-3" y="-55" width="6" height="40" fill="#A07040"/>
       </g>`;
     case "book":
-      return `<g transform="translate(272 385)">
-        <rect x="-28" y="-38" width="56" height="76" rx="4" fill="${c}"/>
-        <rect x="-22" y="-32" width="44" height="64" rx="2" fill="#FFF8F0"/>
+      return `<g transform="${origin}">
+        <rect x="-24" y="-36" width="48" height="64" rx="3" fill="${c}"/>
+        <rect x="-18" y="-30" width="36" height="52" rx="2" fill="#FFF8F0"/>
       </g>`;
     default:
       return "";
   }
+}
+
+function drawBabySVG(kind, color, wrap) {
+  if (!kind || kind === "none") return "";
+  const c = color || "#ffb0c8";
+  const w = wrap || "#ffe0ec";
+  // 抱在胸前偏左臂弯
+  if (kind === "babyBear") {
+    return `<g transform="translate(150 390)" id="m2dBabyFig">
+      <circle cx="-12" cy="-18" r="10" fill="${c}"/><circle cx="12" cy="-18" r="10" fill="${c}"/>
+      <ellipse cx="0" cy="6" rx="28" ry="32" fill="${c}"/>
+      <circle cx="0" cy="-14" r="18" fill="${c}"/>
+      <circle cx="-6" cy="-16" r="2.5" fill="#3A2820"/><circle cx="6" cy="-16" r="2.5" fill="#3A2820"/>
+    </g>`;
+  }
+  if (kind === "babyBunny") {
+    return `<g transform="translate(150 390)">
+      <ellipse cx="-10" cy="-40" rx="7" ry="18" fill="${c}"/>
+      <ellipse cx="10" cy="-40" rx="7" ry="18" fill="${c}"/>
+      <ellipse cx="0" cy="8" rx="26" ry="30" fill="${w}"/>
+      <circle cx="0" cy="-16" r="18" fill="${c}"/>
+      <circle cx="-6" cy="-18" r="2.5" fill="#3A2820"/><circle cx="6" cy="-18" r="2.5" fill="#3A2820"/>
+      <ellipse cx="0" cy="-8" rx="5" ry="3" fill="#FFB0C0"/>
+    </g>`;
+  }
+  // 普通宝宝
+  return `<g transform="translate(150 390)">
+    <ellipse cx="0" cy="14" rx="30" ry="34" fill="${w}"/>
+    <circle cx="0" cy="-16" r="20" fill="${SKIN}"/>
+    <ellipse cx="0" cy="8" rx="22" ry="18" fill="${c}"/>
+    <circle cx="-7" cy="-18" r="2.8" fill="#3A2820"/><circle cx="7" cy="-18" r="2.8" fill="#3A2820"/>
+    <path d="M-6 -6 Q0 -1 6 -6" fill="none" stroke="#E88" stroke-width="2" stroke-linecap="round"/>
+  </g>`;
+}
+
+function drawHatSVG(hat) {
+  if (!hat?.kind) return "";
+  const kind = hat.kind;
+  if (kind === "crown") {
+    return `<path d="M145 100 L155 130 L180 110 L205 130 L215 100 L200 133 L180 123 L160 133 Z" fill="${GOLD}"/>
+      <circle cx="155" cy="103" r="5" fill="#FF6B8A"/><circle cx="180" cy="95" r="6" fill="#7EC8FF"/><circle cx="205" cy="103" r="5" fill="#FF9EC0"/>`;
+  }
+  if (kind === "beret") {
+    const bcol = hat.color || "#ef6b8a";
+    return `<ellipse cx="195" cy="112" rx="50" ry="18" fill="${bcol}"/><circle cx="222" cy="100" r="7" fill="${bcol}"/>`;
+  }
+  if (kind === "cap") {
+    const c = hat.color || "#ff8ab0";
+    return `<path d="M120 130 Q180 95 240 130 Q235 155 180 158 Q125 155 120 130 Z" fill="${c}"/>
+      <path d="M175 150 Q230 145 255 155 Q230 168 180 162 Z" fill="${c}"/>`;
+  }
+  if (kind === "flower") {
+    return `<circle cx="250" cy="148" r="11" fill="#FF6B8A"/><circle cx="260" cy="142" r="9" fill="#FF9EC0"/><circle cx="242" cy="140" r="9" fill="#FFE0EC"/>
+      <circle cx="180" cy="108" r="8" fill="#FF9EC0"/><circle cx="200" cy="102" r="7" fill="#FF6B8A"/>`;
+  }
+  if (kind === "star") return `<circle cx="118" cy="148" r="9" fill="${GOLD}"/>`;
+  if (kind === "butterfly") {
+    return `<ellipse cx="248" cy="155" rx="15" ry="11" fill="#A78BFA"/><ellipse cx="268" cy="155" rx="15" ry="11" fill="#A78BFA"/>`;
+  }
+  if (kind === "catEar") {
+    return `<path d="M125 125 L140 88 L155 125 Z" fill="#FFB6C1"/><path d="M205 125 L220 88 L235 125 Z" fill="#FFB6C1"/>
+      <path d="M132 122 L140 100 L148 122 Z" fill="#FFDEE8"/><path d="M212 122 L220 100 L228 122 Z" fill="#FFDEE8"/>`;
+  }
+  return "";
 }
 
 function hairSVG(style, hc) {
@@ -253,7 +325,11 @@ export class Makeup2D {
               <g id="m2dDress"></g>
               <g id="m2dArms"></g>
               <g id="m2dSleeves"></g>
-              <path id="m2dNeck" d="M158 308 C156 328 162 342 180 345 C198 342 204 328 202 308 Z" fill="${SKIN}"/>
+              <g id="m2dWatch"></g>
+              <g id="m2dBracelet"></g>
+              <!-- 脖子与下巴衔接：上缘埋进脸底 -->
+              <path id="m2dNeck" d="M164 278 C160 300 166 328 180 336 C194 328 200 300 196 278
+                Q180 286 164 278 Z" fill="${SKIN}"/>
               <g id="m2dNecklace"></g>
               <ellipse id="m2dEarL" cx="94" cy="205" rx="16" ry="22" fill="${SKIN}"/>
               <ellipse id="m2dEarR" cx="266" cy="205" rx="16" ry="22" fill="${SKIN}"/>
@@ -271,6 +347,7 @@ export class Makeup2D {
               <g id="m2dGlasses"></g>
               <g id="m2dEarrings"></g>
               <g id="m2dAccessory"></g>
+              <g id="m2dBaby"></g>
               <g id="m2dProp"></g>
               <g id="m2dShoes"></g>
             </svg>
@@ -307,8 +384,11 @@ export class Makeup2D {
     const feat = findMakeupOption("features", state.makeup.features || "featSweet");
     const top = findMakeupOption("top", state.makeup.top);
     const bottom = findMakeupOption("bottom", state.makeup.bottom);
-    const acc = findMakeupOption("accessory", state.makeup.accessory);
+    const hat = findMakeupOption("hat", state.makeup.hat || "hat0");
+    const jew = findMakeupOption("jewelry", state.makeup.jewelry || "jew0");
+    const baby = findMakeupOption("baby", state.makeup.baby || "baby0");
     const propOpt = findMakeupOption("prop", state.makeup.prop || "prop0");
+    const bgOpt = findMakeupOption("bg", state.makeup.bg || "bgRose");
     const hc = hairOpt.color;
     const tc = top.color;
     const bc = bottom.color;
@@ -316,6 +396,12 @@ export class Makeup2D {
     const style = CHAR_STYLES.find((s) => s.id === state.charStyle) || CHAR_STYLES[0];
     const nameEl = $("m2dName");
     if (nameEl) nameEl.textContent = style.name;
+
+    // 背景切换
+    const bgEl = $("m2dBg");
+    if (bgEl) {
+      bgEl.className = `m2d-bg ${bgOpt.css || "bg-rose"}`;
+    }
 
     // Face shape
     const faceEl = $("m2dFace");
@@ -339,16 +425,16 @@ export class Makeup2D {
       <ellipse cx="196" cy="582" rx="26" ry="12" fill="${bc}"/>
     `;
 
-    // 完整上衣躯干：从锁骨下到腰，保证运动服等非裙子款也有上半身
+    // 完整上衣躯干：从脖子下缘到腰
     const topBody = `
-      <path d="M128 332
-        Q180 312 232 332
-        L242 355
+      <path d="M128 320
+        Q180 300 232 320
+        L242 348
         Q248 400 238 418
         Q180 430 122 418
-        Q112 400 118 355
+        Q112 400 118 348
         Z" fill="${tc}"/>
-      <circle cx="180" cy="360" r="8" fill="${GOLD}"/>
+      <circle cx="180" cy="348" r="8" fill="${GOLD}"/>
     `;
 
     if (bottom.skirt) {
@@ -397,42 +483,45 @@ export class Makeup2D {
     $("m2dHairBack").innerHTML = hair.back;
     $("m2dHairFront").innerHTML = hair.front;
 
-    $("m2dGlasses").innerHTML = acc.glasses
+    $("m2dGlasses").innerHTML = jew.glasses
       ? `<ellipse cx="142" cy="198" rx="30" ry="26" fill="none" stroke="#3a3040" stroke-width="3"/>
          <ellipse cx="218" cy="198" rx="30" ry="26" fill="none" stroke="#3a3040" stroke-width="3"/>
          <path d="M172 198 H188" stroke="#3a3040" stroke-width="3"/>`
       : "";
-    $("m2dEarrings").innerHTML = acc.earrings
-      ? `<circle cx="94" cy="232" r="7" fill="#FFF8F0" stroke="${GOLD}" stroke-width="1.5"/>
-         <circle cx="266" cy="232" r="7" fill="#FFF8F0" stroke="${GOLD}" stroke-width="1.5"/>`
+    // 耳环贴耳垂
+    $("m2dEarrings").innerHTML = jew.earrings
+      ? `<circle cx="90" cy="228" r="8" fill="#FFF8F0" stroke="${GOLD}" stroke-width="1.5"/>
+         <circle cx="270" cy="228" r="8" fill="#FFF8F0" stroke="${GOLD}" stroke-width="1.5"/>
+         <circle cx="90" cy="238" r="3" fill="${GOLD}"/><circle cx="270" cy="238" r="3" fill="${GOLD}"/>`
       : "";
-    $("m2dNecklace").innerHTML = acc.necklace
-      ? `<path d="M152 318 Q180 340 208 318" fill="none" stroke="${GOLD}" stroke-width="3"/>
-         <circle cx="172" cy="334" r="6" fill="#FF6B8A"/><circle cx="188" cy="334" r="6" fill="#FF6B8A"/>
-         <circle cx="180" cy="342" r="5" fill="#FF6B8A"/>`
+    // 项链绕脖子
+    $("m2dNecklace").innerHTML = jew.necklace
+      ? `<path d="M155 312 Q180 338 205 312" fill="none" stroke="${GOLD}" stroke-width="3.5" stroke-linecap="round"/>
+         <circle cx="172" cy="328" r="6" fill="#FF6B8A"/><circle cx="188" cy="328" r="6" fill="#FF6B8A"/>
+         <circle cx="180" cy="336" r="7" fill="#FF6B8A"/>`
+      : "";
+    // 手表在左手腕
+    $("m2dWatch").innerHTML = jew.watch
+      ? `<g transform="translate(92 478)">
+           <rect x="-14" y="-6" width="28" height="14" rx="4" fill="${jew.color || "#ff6b8a"}"/>
+           <rect x="-10" y="-3" width="20" height="8" rx="2" fill="#FFF8F0"/>
+           <circle cx="0" cy="1" r="2" fill="#3a3040"/>
+         </g>`
+      : "";
+    // 手链在右手腕
+    $("m2dBracelet").innerHTML = jew.bracelet
+      ? `<g transform="translate(268 478)">
+           <ellipse cx="0" cy="0" rx="16" ry="7" fill="none" stroke="${jew.color || GOLD}" stroke-width="4"/>
+           <circle cx="12" cy="0" r="4" fill="${jew.color || GOLD}"/>
+         </g>`
       : "";
 
-    let accHtml = "";
-    if (acc.crown) {
-      accHtml += `<path d="M145 100 L155 130 L180 110 L205 130 L215 100 L200 133 L180 123 L160 133 Z" fill="${GOLD}"/>
-        <circle cx="155" cy="103" r="5" fill="#FF6B8A"/><circle cx="180" cy="95" r="6" fill="#7EC8FF"/><circle cx="205" cy="103" r="5" fill="#FF9EC0"/>`;
-    }
-    if (acc.flower) {
-      accHtml += `<circle cx="250" cy="155" r="10" fill="#FF6B8A"/><circle cx="258" cy="150" r="8" fill="#FF9EC0"/><circle cx="242" cy="150" r="8" fill="#FFE0EC"/>`;
-    }
-    if (acc.beret) {
-      const bcol = acc.color || "#ef6b8a";
-      accHtml += `<ellipse cx="195" cy="118" rx="48" ry="18" fill="${bcol}"/><circle cx="220" cy="108" r="6" fill="${bcol}"/>`;
-    }
-    if (acc.star) accHtml += `<circle cx="120" cy="150" r="8" fill="${GOLD}"/>`;
-    if (acc.butterfly) {
-      accHtml += `<ellipse cx="250" cy="160" rx="14" ry="10" fill="#A78BFA"/><ellipse cx="268" cy="160" rx="14" ry="10" fill="#A78BFA"/>`;
-    }
-    if (acc.catEar) {
-      accHtml += `<path d="M125 125 L140 90 L155 125 Z" fill="#FFB6C1"/><path d="M205 125 L220 90 L235 125 Z" fill="#FFB6C1"/>`;
-    }
-    $("m2dAccessory").innerHTML = accHtml;
-    $("m2dProp").innerHTML = drawPropSVG(propOpt.prop, propOpt.color);
+    $("m2dAccessory").innerHTML = drawHatSVG(hat);
+    $("m2dBaby").innerHTML = drawBabySVG(baby.kind, baby.color, baby.wrap);
+    // 抱宝宝时右手道具可并存；包挂左臂
+    const slot = propOpt.slot || "hand";
+    $("m2dProp").innerHTML =
+      propOpt.prop && propOpt.prop !== "none" ? drawPropSVG(propOpt.prop, propOpt.color, slot) : "";
   }
 }
 

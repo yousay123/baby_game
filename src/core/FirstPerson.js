@@ -70,6 +70,45 @@ export class ThirdPersonControls {
       },
       { passive: true }
     );
+
+    // 手机双指缩放远近
+    this._pinch = null;
+    canvas.addEventListener(
+      "touchstart",
+      (e) => {
+        if (e.touches.length === 2) {
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          this._pinch = { dist: Math.hypot(dx, dy), startCam: this.distance };
+          this.dragging = false;
+        }
+      },
+      { passive: true }
+    );
+    canvas.addEventListener(
+      "touchmove",
+      (e) => {
+        if (!this._pinch || e.touches.length !== 2) return;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const d = Math.hypot(dx, dy);
+        const scale = this._pinch.dist / Math.max(40, d);
+        this.distance = Math.max(
+          this.minDist,
+          Math.min(this.maxDist, this._pinch.startCam * scale)
+        );
+        this.baseDist = this.distance;
+        this.userLock = true;
+      },
+      { passive: true }
+    );
+    canvas.addEventListener(
+      "touchend",
+      () => {
+        this._pinch = null;
+      },
+      { passive: true }
+    );
   }
 
   resetLook(yaw = 0, pitch = 0.4, bounds = null) {

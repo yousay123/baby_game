@@ -37,16 +37,18 @@ class Game {
 
     this.canvas.addEventListener("pointerdown", (e) => {
       if (e.target !== this.canvas) return;
-      this._ptrDown = { x: e.clientX, y: e.clientY, t: performance.now() };
+      this._ptrDown = { x: e.clientX, y: e.clientY, t: performance.now(), type: e.pointerType };
     });
     this.canvas.addEventListener("pointerup", (e) => {
       if (e.target !== this.canvas || !this._ptrDown) return;
       const dx = e.clientX - this._ptrDown.x;
       const dy = e.clientY - this._ptrDown.y;
-      const moved = Math.hypot(dx, dy) > 6;
-      const quick = performance.now() - this._ptrDown.t < 450;
+      // 触屏手指抖动更大，提高判定阈值，方便点选
+      const slop = this._ptrDown.type === "touch" ? 22 : 8;
+      const moved = Math.hypot(dx, dy) > slop;
+      const quick = performance.now() - this._ptrDown.t < 500;
       this._ptrDown = null;
-      if (moved || !quick || e.button !== 0) return;
+      if (moved || !quick || (e.button != null && e.button !== 0)) return;
 
       const scene = this.scenes.threeScene;
       if (!scene) return;

@@ -52,7 +52,10 @@ export class InputController {
   }
 
   pickInteractive(scene) {
-    const hits = this.pick(scene);
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    // 触屏更容易点偏，放宽拾取范围
+    this.raycaster.params.Sprite = { threshold: 0.35 };
+    const hits = this.raycaster.intersectObjects(scene.children, true);
     for (const h of hits) {
       let o = h.object;
       while (o) {

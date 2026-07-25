@@ -550,7 +550,7 @@ export class MarketScene extends BaseScene {
     this.npcs.push(shopperA, shopperB, shopperC);
     this.threeScene.add(shopperA, shopperB, shopperC);
 
-    game.toast("你在入口广场 · 头顶粉色「小蜜糖」就是你 · WASD 往里走");
+    game.toast("你在入口广场 · 头顶粉色「小蜜糖」就是你 · 点地板就能走");
 
     // Promo island — center aisle, not on spawn
     const promo = softBox(1.6, 0.7, 1.0, 0xffe08a);
@@ -609,15 +609,16 @@ export class MarketScene extends BaseScene {
 
   openShelf(game, cat) {
     const goods = MARKET_GOODS[cat] || [];
+    const hint = new Set(game.state.shoppingHint || []);
     const wrap = document.createElement("div");
     wrap.innerHTML = goods
-      .map(
-        (g) =>
-          `<div style="display:flex;justify-content:space-between;margin:6px 0;align-items:center">
-            <span>${g.icon || ""} ${g.name} ¥${g.price}</span>
+      .map((g) => {
+        const need = hint.has(g.id);
+        return `<div style="display:flex;justify-content:space-between;margin:6px 0;align-items:center;padding:6px 8px;border-radius:10px;${need ? "background:#fff0f3;outline:1px solid #ef6b8a" : ""}">
+            <span>${g.icon || ""} ${g.name} ¥${g.price}${need ? " ·菜谱需要" : ""}</span>
             <button type="button" class="btn btn-coral" data-gid="${g.id}">放入购物车</button>
-          </div>`
-      )
+          </div>`;
+      })
       .join("");
     wrap.addEventListener("click", (e) => {
       const b = e.target.closest("[data-gid]");

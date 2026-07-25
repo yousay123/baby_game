@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { box, makeInteractable, makeLabelSprite } from "../core/builders.js";
 import { COLORS, APPLIANCE_NAMES } from "../core/constants.js";
 import { BaseScene } from "./WorldScenes.js";
-import { washPrep, startCook } from "../ui/HUD.js";
+import { washPrep } from "../ui/HUD.js";
 import { isPowerOn, getPowerMode, placeOnTable, setMealPhase, claimMealBonus } from "../gameplay/systems.js";
 import {
   createNPC,
@@ -84,8 +84,21 @@ export class KitchenScene extends BaseScene {
     const place = (mesh, x, label, yLabel = 1.55) => {
       mesh.position.set(x, 0, rowZ);
       if (label) {
-        const spr = makeLabelSprite(label);
+        const spr = makeLabelSprite(label, { scaleX: 0.72, scaleY: 0.18, fontSize: 30 });
         spr.position.set(x, yLabel, rowZ);
+        // 标签也可点，方便手机点击
+        if (mesh.userData?.interactive) {
+          spr.userData.interactive = true;
+          Object.assign(spr.userData, {
+            type: mesh.userData.type,
+            key: mesh.userData.key,
+            cook: mesh.userData.cook,
+            power: mesh.userData.power,
+            sit: mesh.userData.sit,
+            seat: mesh.userData.seat,
+            to: mesh.userData.to,
+          });
+        }
         this.threeScene.add(spr);
       }
       this.threeScene.add(mesh);
@@ -325,22 +338,9 @@ export class KitchenScene extends BaseScene {
         return;
       }
       if (d.type === "cook") {
-        const powerKey = d.power;
-        const name = APPLIANCE_NAMES[powerKey] || powerKey;
-        game.ui.openApplianceModal(powerKey, name, () => this.applyPower(game.state), {
-          extra: [
-            {
-              label: "开始烹饪",
-              className: "btn-coral",
-              onClick: () => {
-                const res = startCook(game.state, d.cook, (recipe) => {
-                  game.toast(recipe.dish + "做好啦！去装盘台装盘/装碗～");
-                });
-                game.toast(res.msg);
-              },
-            },
-          ],
-        });
+        const station = d.power === "rice" ? "rice" : d.power === "oven" ? "oven" : "stove";
+        game.ui.openCookRecipeModal(station);
+        return;
       }
     };
 
