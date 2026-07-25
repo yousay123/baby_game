@@ -581,7 +581,7 @@ export class MarketScene extends BaseScene {
     if (type === "carts") {
       game.state.hasCart = true;
       game.emit();
-      game.toast("拿到购物车啦，去货架选购吧");
+      game.toast(game.state.cart.length ? "推着购物车去结账吧" : "拿到购物车啦，去货架选购吧");
       game.syncCarryVisual();
       return;
     }
@@ -887,7 +887,7 @@ export class HomeScene extends BaseScene {
     if (d.type === "npc") {
       if (d.key === "dad" || d.key === "mom") {
         const who = d.key === "dad" ? "爸爸" : "妈妈";
-        game.ui.openModal(who, `${who}：小蜜糖辛苦啦～要不要领今天的零花钱？`, [
+        game.ui.openModal(who, `${who}：小蜜糖辛苦啦～要不要领零花钱？`, [
           {
             label: "领零花钱 +¥50",
             className: "btn-coral",

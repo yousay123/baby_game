@@ -652,7 +652,12 @@ export function createMarketShelf(cat, label, { doubleSided = true } = {}) {
     }
 
     const title = label || ({ veg: "蔬菜", drinks: "饮料", daily: "粮油", snack: "零食" }[cat] || cat);
-    const sign = makeLabelSprite(title, { bg: "rgba(80,40,30,0.82)", scaleX: 0.48, scaleY: 0.12 });
+    const sign = makeLabelSprite(title, {
+      bg: "rgba(80,40,30,0.82)",
+      scaleX: 0.48,
+      scaleY: 0.12,
+      fontSize: 30,
+    });
     sign.position.set(0, 2.28, side * (halfD + 0.05));
     g.add(sign);
 
@@ -663,6 +668,7 @@ export function createMarketShelf(cat, label, { doubleSided = true } = {}) {
       bg: "rgba(239,107,138,0.95)",
       scaleX: 0.5,
       scaleY: 0.12,
+      fontSize: 30,
     });
     buy.position.set(0, 2.48, side * (halfD + 0.12));
     g.add(hit, buy);

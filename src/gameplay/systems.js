@@ -282,8 +282,9 @@ export function checkoutCart(state) {
 }
 
 export function addToCart(state, goods) {
-  if (!state.hasCart) return { ok: false, msg: "先去拿购物车～" };
   state.cart.push({ ...goods });
+  // 可不拿实体车直接选购；有商品时视为已在购物
+  if (!state.hasCart) state.hasCart = true;
   emit(state);
   return { ok: true, msg: `放入购物车：${goods.name}` };
 }
@@ -308,13 +309,8 @@ export function spendMoney(state, amount, reason = "") {
   return { ok: true, amount: n, reason, money: state.money };
 }
 
-/** Daily pocket money from parents (once per session flag) */
+/** 向爸妈要零花钱：每次点击领取一次 */
 export function claimAllowance(state) {
-  if (state.flags?.gotAllowance) {
-    return { ok: false, msg: "今天的零花钱已经领过啦～" };
-  }
-  state.flags = state.flags || {};
-  state.flags.gotAllowance = true;
   return earnMoney(state, 50, "零花钱");
 }
 

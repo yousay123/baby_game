@@ -174,9 +174,9 @@ export class HUD {
         .filter(Boolean);
       quest.textContent = hintNames.length
         ? `菜谱还缺：${hintNames.join("、")}，点货架选购后去收银台`
-        : state.hasCart
-          ? "点货架选购，去收银台结账"
-          : "先点购物车区域拿车";
+        : state.cart.length
+          ? "选好了去收银台结账，或点购物车旁柜台"
+          : "直接点货架选购，结账后回家";
       addHead("购物车");
       addItems(state.cart, "空空的");
       addHead("已买购物袋");
