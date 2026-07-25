@@ -72,7 +72,7 @@ export function startCook(state, type, onDone) {
   if (state.cooking) return { ok: false, msg: "正在做饭中…" };
   const recipe = RECIPES[type];
   if (!recipe) return { ok: false, msg: "未知菜谱" };
-  if (recipe.power && !state.power[recipe.power]) {
+  if (recipe.power && !isPowerOn(state, recipe.power)) {
     return { ok: false, msg: `请先打开${recipe.power === "stove" ? "燃气灶" : recipe.power === "rice" ? "电饭煲" : "烤箱"}` };
   }
   if (!state.prep.length) {
@@ -85,8 +85,8 @@ export function startCook(state, type, onDone) {
   if (recipe.needWashed && !hasWashedVeg(state)) {
     return { ok: false, msg: "蔬菜还没洗，先去水槽洗菜～" };
   }
-  if (type === "stirfry" && !state.power.hood) {
-    state.power.hood = true;
+  if (type === "stirfry" && !isPowerOn(state, "hood")) {
+    setPower(state, "hood", "on");
   }
   state.cooking = true;
   consumePrepTags(state, recipe.need);
@@ -107,7 +107,7 @@ export function startCook(state, type, onDone) {
 
 export function putBagInFridge(state) {
   if (!state.bag.length) return false;
-  if (!state.power.fridge) return false;
+  if (!isPowerOn(state, "fridge")) return false;
   state.fridge.push(...state.bag.map(cloneItem));
   state.bag = [];
   emit(state);
@@ -116,7 +116,7 @@ export function putBagInFridge(state) {
 
 export function takeFromFridge(state, idx) {
   if (idx < 0 || idx >= state.fridge.length) return null;
-  if (!state.power.fridge) return null;
+  if (!isPowerOn(state, "fridge")) return null;
   const item = state.fridge.splice(idx, 1)[0];
   state.prep.push(item);
   state.holding = item;
@@ -134,11 +134,38 @@ export function washPrep(state) {
   return true;
 }
 
+/** Normalize legacy boolean / string power values */
+export function getPowerMode(state, key) {
+  const v = state.power[key];
+  if (v === true || v === "on") return "on";
+  if (v === "paused") return "paused";
+  return "off";
+}
+
+export function isPowerOn(state, key) {
+  return getPowerMode(state, key) === "on";
+}
+
+export function isPowerActive(state, key) {
+  const m = getPowerMode(state, key);
+  return m === "on" || m === "paused";
+}
+
+export function setPower(state, key, mode) {
+  if (!(key in state.power)) return false;
+  if (!["on", "off", "paused"].includes(mode)) return false;
+  state.power[key] = mode;
+  emit(state);
+  return mode;
+}
+
+/** Flip between on and off (paused → on). Kept for compatibility. */
 export function togglePower(state, key) {
   if (!(key in state.power)) return false;
-  state.power[key] = !state.power[key];
+  const next = isPowerOn(state, key) ? "off" : "on";
+  state.power[key] = next;
   emit(state);
-  return state.power[key];
+  return next === "on";
 }
 
 export function checkoutCart(state) {
@@ -151,8 +178,10 @@ export function checkoutCart(state) {
   state.bag.push(...state.cart.map((i) => cloneItem({ ...i, washed: false })));
   state.cart = [];
   state.hasCart = false;
+  state.stats = state.stats || {};
+  state.stats.spent = (state.stats.spent || 0) + total;
   emit(state);
-  return { ok: true, total, msg: "结账成功！提着购物袋回家吧～" };
+  return { ok: true, total, msg: `结账成功！花了 ¥${total}，钱包还剩 ¥${state.money}` };
 }
 
 export function addToCart(state, goods) {
@@ -160,4 +189,59 @@ export function addToCart(state, goods) {
   state.cart.push({ ...goods });
   emit(state);
   return { ok: true, msg: `放入购物车：${goods.name}` };
+}
+
+export function earnMoney(state, amount, reason = "") {
+  const n = Math.max(0, Math.floor(amount));
+  if (!n) return { ok: false, amount: 0 };
+  state.money += n;
+  state.stats = state.stats || {};
+  state.stats.earned = (state.stats.earned || 0) + n;
+  emit(state);
+  return { ok: true, amount: n, reason, money: state.money };
+}
+
+export function spendMoney(state, amount, reason = "") {
+  const n = Math.max(0, Math.floor(amount));
+  if (state.money < n) return { ok: false, amount: 0, msg: "钱不够啦～" };
+  state.money -= n;
+  state.stats = state.stats || {};
+  state.stats.spent = (state.stats.spent || 0) + n;
+  emit(state);
+  return { ok: true, amount: n, reason, money: state.money };
+}
+
+/** Daily pocket money from parents (once per session flag) */
+export function claimAllowance(state) {
+  if (state.flags?.gotAllowance) {
+    return { ok: false, msg: "今天的零花钱已经领过啦～" };
+  }
+  state.flags = state.flags || {};
+  state.flags.gotAllowance = true;
+  return earnMoney(state, 50, "零花钱");
+}
+
+/** Bonus after family meal */
+export function claimMealBonus(state) {
+  if (state.flags?.gotMealBonus) {
+    return { ok: false, msg: "这顿饭的奖励已经领过啦" };
+  }
+  if (state.mealPhase !== "done") {
+    return { ok: false, msg: "先做好饭喊家人一起吃吧" };
+  }
+  state.flags = state.flags || {};
+  state.flags.gotMealBonus = true;
+  const tip = 30 + (state.tableFood?.length || 0) * 15;
+  return earnMoney(state, tip, "做饭奖励");
+}
+
+/** Small chore rewards */
+export function claimChore(state, chore) {
+  state.flags = state.flags || {};
+  const key = `chore_${chore}`;
+  if (state.flags[key]) return { ok: false, msg: "这件事已经做过啦" };
+  const rewards = { plant: 8, dogbed: 10, shelf: 5, light: 6 };
+  const amt = rewards[chore] || 5;
+  state.flags[key] = true;
+  return earnMoney(state, amt, "家务奖励");
 }

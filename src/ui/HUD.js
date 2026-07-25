@@ -1,4 +1,4 @@
-import { SCENES, MAKEUP, MARKET_GOODS } from "../core/constants.js";
+import { SCENES, MAKEUP, MARKET_GOODS, APPLIANCE_NAMES, CHAR_STYLES } from "../core/constants.js";
 import {
   plateDish,
   pickUpPlated,
@@ -8,17 +8,21 @@ import {
   takeFromFridge,
   washPrep,
   togglePower,
+  setPower,
+  getPowerMode,
   startCook,
   checkoutCart,
   addToCart,
 } from "../gameplay/systems.js";
 import { emit } from "../gameplay/GameState.js";
 import { applyMakeup } from "../characters/Avatar.js";
+import { makeup2d } from "./Makeup2D.js";
 
 export class HUD {
   constructor(game) {
     this.game = game;
     this.toastTimer = null;
+    this.makeupMode = "makeup";
     this.makeupTab = "lipstick";
 
     document.getElementById("sceneNav").addEventListener("click", (e) => {
@@ -29,11 +33,21 @@ export class HUD {
 
     document.getElementById("btnFinishMakeup")?.addEventListener("click", () => {
       game.toast("美美出发！去超市买菜吧～");
+      makeup2d.hide();
       game.go("market");
     });
 
     this.bindMakeupUI();
     this.unsubscribe = null;
+
+    const panel = document.getElementById("hudPanel");
+    const toggle = document.getElementById("hudToggle");
+    toggle?.addEventListener("click", () => {
+      panel?.classList.toggle("hud-collapsed");
+      if (toggle) {
+        toggle.textContent = panel?.classList.contains("hud-collapsed") ? "物品" : "收起";
+      }
+    });
   }
 
   bindState(state) {
@@ -49,10 +63,25 @@ export class HUD {
     document.querySelectorAll("#sceneNav button").forEach((b) => {
       b.classList.toggle("active", b.dataset.scene === id);
     });
+    document.body.classList.toggle("scene-makeup", id === "makeup");
     const sub = document.getElementById("sceneSubtitle");
     if (sub) sub.textContent = SCENES[id]?.title || "";
     const makeup = document.getElementById("makeupPanel");
     if (makeup) makeup.hidden = id !== "makeup";
+    const panel = document.getElementById("hudPanel");
+    const toggle = document.getElementById("hudToggle");
+    if (panel && id !== "makeup") {
+      panel.classList.add("hud-collapsed");
+      if (toggle) toggle.textContent = "物品";
+    }
+    if (id === "makeup") {
+      makeup2d.show();
+      makeup2d.render(this.game.state);
+      if (this.game.fp) this.game.fp.enabled = false;
+    } else {
+      makeup2d.hide();
+      if (this.game.fp) this.game.fp.enabled = true;
+    }
     this.refresh(this.game.state);
   }
 
@@ -95,6 +124,12 @@ export class HUD {
   refresh(state) {
     const money = document.getElementById("walletMoney");
     if (money) money.textContent = String(state.money);
+    const walletHint = document.getElementById("walletHint");
+    if (walletHint) {
+      const e = state.stats?.earned || 0;
+      const s = state.stats?.spent || 0;
+      walletHint.textContent = e || s ? `赚¥${e} · 花¥${s}` : "领零花钱·做家务·做饭可赚钱";
+    }
 
     const list = document.getElementById("invList");
     const quest = document.getElementById("questText");
@@ -279,27 +314,88 @@ export class HUD {
   }
 
   bindMakeupUI() {
+    const modes = document.getElementById("makeupModes");
     const tabs = document.getElementById("makeupTabs");
     const options = document.getElementById("makeupOptions");
+    const title = document.getElementById("makeupPanelTitle");
+    const stylesEl = document.getElementById("charStyles");
     if (!tabs || !options) return;
-    tabs.innerHTML = MAKEUP.tabs
-      .map((t) => `<button type="button" data-tab="${t.id}">${t.name}</button>`)
-      .join("");
+
+    const modeTabs = () => (this.makeupMode === "dress" ? MAKEUP.dressTabs : MAKEUP.makeupTabs);
+
+    const applyToViews = () => {
+      emit(this.game.state);
+      const avatar = this.game.player;
+      if (avatar) applyMakeup(avatar, this.game.state);
+      makeup2d.render(this.game.state);
+    };
+
     const render = () => {
-      tabs.querySelectorAll("button").forEach((b) => {
-        b.classList.toggle("active", b.dataset.tab === this.makeupTab);
-      });
+      if (stylesEl) {
+        stylesEl.innerHTML = CHAR_STYLES.map(
+          (s) => `<button type="button" data-style="${s.id}" class="char-style-btn ${this.game.state.charStyle === s.id ? "active" : ""}" title="${s.desc}">
+            <span class="char-style-icon">${s.icon}</span>
+            <span class="char-style-name">${s.name}</span>
+          </button>`
+        ).join("");
+      }
+      if (modes) {
+        modes.querySelectorAll("button").forEach((b) => {
+          b.classList.toggle("active", b.dataset.mode === this.makeupMode);
+        });
+      }
+      if (title) {
+        title.textContent = this.makeupMode === "dress" ? "蜜糖换装间" : "蜜糖化妆台";
+      }
+      const listTabs = modeTabs();
+      if (!listTabs.find((t) => t.id === this.makeupTab)) {
+        this.makeupTab = listTabs[0]?.id || "lipstick";
+      }
+      tabs.innerHTML = listTabs
+        .map((t) => `<button type="button" data-tab="${t.id}" class="${t.id === this.makeupTab ? "active" : ""}">${t.name}</button>`)
+        .join("");
       const list = MAKEUP[this.makeupTab] || [];
       const selected = this.game.state.makeup[this.makeupTab];
+      const big = this.makeupTab === "prop" || this.makeupTab === "accessory";
+      options.classList.toggle("options-props", big);
       options.innerHTML = list
         .map((o) => {
-          const swatch = o.color
-            ? `<div class="swatch" style="background:${o.color}"></div>`
+          const icon = o.icon
+            ? `<span class="product-icon${big ? " product-icon-lg" : ""}" aria-hidden="true">${o.icon}</span>`
+            : o.color
+              ? `<div class="swatch" style="background:${o.color}"></div>`
+              : "";
+          const desc = o.desc ? `<small class="product-desc">${o.desc}</small>` : "";
+          const colorDot = o.color
+            ? `<span class="product-dot" style="background:${o.color}"></span>`
             : "";
-          return `<button type="button" data-opt="${o.id}" class="${selected === o.id ? "selected" : ""}">${swatch}${o.name}</button>`;
+          return `<button type="button" data-opt="${o.id}" class="product-card ${big ? "product-card-lg" : ""} ${selected === o.id ? "selected" : ""}">
+            ${icon}
+            <span class="product-name">${colorDot}${o.name}</span>
+            ${desc}
+          </button>`;
         })
         .join("");
     };
+
+    stylesEl?.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-style]");
+      if (!b) return;
+      const style = CHAR_STYLES.find((s) => s.id === b.dataset.style);
+      if (!style) return;
+      this.game.state.charStyle = style.id;
+      Object.assign(this.game.state.makeup, style.makeup);
+      applyToViews();
+      this.toast(`已切换风格：${style.name}`);
+      render();
+    });
+    modes?.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-mode]");
+      if (!b) return;
+      this.makeupMode = b.dataset.mode;
+      this.makeupTab = modeTabs()[0]?.id || "lipstick";
+      render();
+    });
     tabs.addEventListener("click", (e) => {
       const b = e.target.closest("[data-tab]");
       if (!b) return;
@@ -310,12 +406,52 @@ export class HUD {
       const b = e.target.closest("[data-opt]");
       if (!b) return;
       this.game.state.makeup[this.makeupTab] = b.dataset.opt;
-      emit(this.game.state);
-      const avatar = this.game.player;
-      if (avatar) applyMakeup(avatar, this.game.state);
+      applyToViews();
+      const opt = (MAKEUP[this.makeupTab] || []).find((o) => o.id === b.dataset.opt);
+      this.toast(`已换上：${opt?.name || b.textContent.trim()}`);
       render();
     });
     render();
+  }
+
+  openApplianceModal(key, label, onChanged, { extra = [] } = {}) {
+    const mode = getPowerMode(this.game.state, key);
+    const modeLabel = mode === "on" ? "运行中" : mode === "paused" ? "已暂停" : "已关闭";
+    const wrap = document.createElement("div");
+    wrap.innerHTML = `<p style="margin:0 0 12px;line-height:1.5">当前状态：<strong>${modeLabel}</strong></p>
+      <p style="margin:0;color:#887078;font-size:13px">请选择操作：</p>`;
+    const actions = [
+      {
+        label: "打开",
+        className: "btn-coral",
+        onClick: () => {
+          setPower(this.game.state, key, "on");
+          onChanged?.();
+          this.toast(`${label}已打开`);
+        },
+      },
+      {
+        label: "关闭",
+        className: "btn-ghost",
+        onClick: () => {
+          setPower(this.game.state, key, "off");
+          onChanged?.();
+          this.toast(`${label}已关闭`);
+        },
+      },
+      {
+        label: "暂停",
+        className: "btn-ghost",
+        onClick: () => {
+          setPower(this.game.state, key, "paused");
+          onChanged?.();
+          this.toast(`${label}已暂停`);
+        },
+      },
+      ...extra,
+      { label: "取消", className: "btn-ghost" },
+    ];
+    this.openModal(label || APPLIANCE_NAMES[key] || key, wrap, actions);
   }
 
   openFridgeModal(state) {
@@ -359,4 +495,4 @@ export class HUD {
   }
 }
 
-export { washPrep, togglePower, startCook, addToCart };
+export { washPrep, togglePower, setPower, startCook, addToCart };

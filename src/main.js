@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { createRenderer, createCamera, SceneManager } from "./core/SceneManager.js";
 import { InputController } from "./core/Input.js";
+import { ThirdPersonControls } from "./core/FirstPerson.js";
 import { createGameState, emit, subscribe } from "./gameplay/GameState.js";
 import { HUD } from "./ui/HUD.js";
 import { MakeupScene, MarketScene, HomeScene } from "./scenes/WorldScenes.js";
@@ -9,7 +10,7 @@ import {
   setHoldingMesh,
   createPlateOrBowl,
   createBagMesh,
-  createCartHoldMesh,
+  setPushCart,
 } from "./characters/Avatar.js";
 import { box } from "./core/builders.js";
 
@@ -18,6 +19,7 @@ class Game {
     this.canvas = document.getElementById("game-canvas");
     this.renderer = createRenderer(this.canvas);
     this.camera = createCamera();
+    this.fp = new ThirdPersonControls(this.canvas, this.camera);
     this.input = new InputController(this.canvas, this.camera);
     this.scenes = new SceneManager(this.renderer, this.camera);
     this.state = createGameState();
@@ -25,6 +27,7 @@ class Game {
     this.ui.bindState(this.state);
     this.player = null;
     this.clock = new THREE.Clock();
+    this._ptrDown = null;
 
     this.scenes.register("makeup", new MakeupScene());
     this.scenes.register("market", new MarketScene());
@@ -32,11 +35,26 @@ class Game {
     this.scenes.register("kitchen", new KitchenScene());
     this.scenes.register("dining", new DiningScene());
 
-    this.input.onClick((pointer, e) => {
-      // ignore UI clicks
+    this.canvas.addEventListener("pointerdown", (e) => {
       if (e.target !== this.canvas) return;
+      this._ptrDown = { x: e.clientX, y: e.clientY, t: performance.now() };
+    });
+    this.canvas.addEventListener("pointerup", (e) => {
+      if (e.target !== this.canvas || !this._ptrDown) return;
+      const dx = e.clientX - this._ptrDown.x;
+      const dy = e.clientY - this._ptrDown.y;
+      const moved = Math.hypot(dx, dy) > 6;
+      const quick = performance.now() - this._ptrDown.t < 450;
+      this._ptrDown = null;
+      if (moved || !quick || e.button !== 0) return;
+
       const scene = this.scenes.threeScene;
       if (!scene) return;
+      // Update pointer from event for raycast
+      const rect = this.canvas.getBoundingClientRect();
+      this.input.pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      this.input.pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
       const interactive = this.input.pickInteractive(scene);
       if (interactive) {
         this.scenes.current.handleClick(this, null, interactive);
@@ -66,9 +84,10 @@ class Game {
 
   syncCarryVisual() {
     if (!this.player) return;
+    setPushCart(this.player, false);
     if (this.state.carrying) {
       const mesh = createPlateOrBowl(this.state.carrying.vessel, this.state.carrying.dish);
-      mesh.scale.setScalar(0.85);
+      mesh.scale.setScalar(0.7);
       setHoldingMesh(this.player, mesh);
       return;
     }
@@ -77,11 +96,12 @@ class Game {
       return;
     }
     if (this.state.hasCart && this.scenes.currentId === "market") {
-      setHoldingMesh(this.player, createCartHoldMesh());
+      setHoldingMesh(this.player, null);
+      setPushCart(this.player, true);
       return;
     }
     if (this.state.holding) {
-      const item = box(0.15, 0.15, 0.15, 0x6ecf7a);
+      const item = box(0.12, 0.12, 0.12, 0x6ecf7a);
       setHoldingMesh(this.player, item);
       return;
     }
@@ -93,11 +113,13 @@ class Game {
     const h = window.innerHeight;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setSize(w, h);
   }
 
   start() {
     this.go("makeup");
+    this.toast("化妆换装→超市花钱买菜→回家做饭挣钱。点爸妈可领零花钱～");
     this.renderer.setAnimationLoop(() => this.frame());
   }
 
@@ -111,7 +133,6 @@ class Game {
 const game = new Game();
 game.start();
 
-// debug helpers for phase1 kitchen bridge
 window.HoneyLife3D = {
   game,
   debugCook() {

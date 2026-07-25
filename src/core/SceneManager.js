@@ -30,6 +30,7 @@ export class SceneManager {
 
   render() {
     if (!this.current) return;
+    if (document.body.classList.contains("makeup-2d-active")) return;
     this.renderer.render(this.current.threeScene, this.camera);
   }
 
@@ -56,12 +57,11 @@ export function createRenderer(canvas) {
 
 export function createCamera() {
   const camera = new THREE.PerspectiveCamera(
-    38,
+    55,
     window.innerWidth / window.innerHeight,
-    0.1,
-    80
+    0.3,
+    100
   );
-  camera.position.set(0, 13, 11);
-  camera.lookAt(0, 0, -0.5);
+  camera.position.set(0, 7.5, 8);
   return camera;
 }

@@ -63,23 +63,64 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 }
 .wallet {
   background: rgba(255,255,255,0.16);
-  border-radius: 999px;
+  border-radius: 14px;
   padding: 6px 12px;
   font-weight: 700;
   font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  line-height: 1.2;
+}
+.wallet small {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.88;
 }
 
 .hud-panel {
   position: absolute;
   top: 76px;
   right: 14px;
-  width: min(280px, 42vw);
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: flex-end;
+  gap: 8px;
   max-height: calc(100% - 110px);
+  pointer-events: none;
+}
+.hud-panel > * { pointer-events: auto; }
+.hud-toggle {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(180deg, #ff9bb0, var(--coral));
+  color: #6d1230;
+  box-shadow: var(--shadow);
+  min-height: 40px;
+}
+.hud-body {
+  width: min(280px, 42vw);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   overflow: auto;
+  max-height: calc(100vh - 160px);
+}
+.hud-panel.hud-collapsed .hud-body {
+  display: none;
+}
+.hud-panel.hud-collapsed .hud-toggle::after {
+  content: "";
+}
+.hud-panel:not(.hud-collapsed) .hud-toggle {
+  background: rgba(255,255,255,0.9);
+  color: var(--ink);
 }
 .hud-card {
   background: var(--panel);
@@ -139,58 +180,269 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 
 .makeup-panel {
   position: absolute;
-  left: 14px;
+  top: 76px;
+  right: 14px;
   bottom: 18px;
-  width: min(360px, 92vw);
+  width: min(320px, 38vw);
   z-index: 12;
   background: var(--panel);
   border-radius: 18px;
   padding: 14px;
   box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+.makeup-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.makeup-panel-head strong {
+  color: #9a3a58;
+  font-size: 16px;
+}
+.makeup-tip {
+  font-size: 11px;
+  color: var(--muted);
+}
+.char-styles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 10px;
+}
+.char-style-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 56px;
+  padding: 6px 8px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: #fff6f9;
+  cursor: pointer;
+  font-size: 11px;
+}
+.char-style-btn.active {
+  border-color: var(--coral);
+  background: #ffe8f0;
+  font-weight: 700;
+}
+.char-style-icon {
+  font-size: 22px;
+  line-height: 1.2;
+}
+.char-style-name {
+  color: #5a4050;
+}
+.makeup-options.options-props {
+  grid-template-columns: repeat(2, 1fr);
+}
+.product-card-lg {
+  min-height: 96px !important;
+  padding: 12px 8px !important;
+}
+.product-icon-lg {
+  font-size: 40px !important;
+}
+.makeup-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.makeup-modes button {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 40px;
+}
+.makeup-modes button.active {
+  background: #ff6b8a;
+  color: #fff;
+  border-color: #ff6b8a;
 }
 .makeup-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 10px 0;
 }
 .makeup-tabs button {
   border: 1px solid var(--line);
   background: #fff;
   border-radius: 999px;
-  padding: 5px 10px;
+  padding: 6px 12px;
   font-size: 12px;
   cursor: pointer;
+  min-height: 34px;
 }
 .makeup-tabs button.active {
   background: #ffe0ea;
   border-color: var(--coral);
+  font-weight: 700;
 }
 .makeup-options {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
-  margin-bottom: 12px;
-  max-height: 160px;
+  flex: 1;
   overflow: auto;
+  align-content: start;
 }
-.makeup-options button {
+.makeup-options button,
+.makeup-options .product-card {
   border: 2px solid transparent;
   border-radius: 12px;
-  padding: 10px 4px;
-  font-size: 12px;
+  padding: 10px 8px;
+  font-size: 13px;
   cursor: pointer;
   background: #fff6f9;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
 }
-.makeup-options button.selected {
+.makeup-options button.selected,
+.makeup-options .product-card.selected {
   border-color: var(--coral);
   background: #ffe8f0;
+  box-shadow: 0 0 0 2px rgba(239,107,138,0.2);
+}
+.product-icon {
+  font-size: 28px;
+  line-height: 1.2;
+}
+.product-name {
+  font-weight: 600;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.product-desc {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 400;
+}
+.product-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  border: 1px solid rgba(0,0,0,0.08);
+}
+.makeup-panel .btn-coral {
+  width: 100%;
+  margin-top: auto;
+  min-height: 44px;
 }
 .swatch {
   width: 100%;
-  height: 18px;
+  height: 16px;
   border-radius: 6px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+}
+/* Makeup room: hide generic items HUD so right side is wardrobe only */
+body.scene-makeup .hud-panel {
+  display: none;
+}
+
+/* —— 2D 化妆镜（还原初版公主） —— */
+.makeup-2d {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 72px 340px 24px 24px;
+  background:
+    radial-gradient(ellipse at 30% 20%, #ffe0f0 0%, transparent 50%),
+    linear-gradient(165deg, #f8e8f4 0%, #efe0ff 40%, #ffe8f0 100%);
+  pointer-events: none;
+}
+.makeup-2d[hidden] { display: none !important; }
+body.makeup-2d-active .hint { display: none; }
+.m2d-mirror {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  max-width: min(420px, 48vw);
+  margin: 0 auto 0 4vw;
+}
+.m2d-frame {
+  width: 100%;
+  padding: 14px;
+  border-radius: 28px;
+  background: linear-gradient(145deg, #ffc0d8, #f8a0c0 40%, #e890b0);
+  box-shadow: 0 18px 40px rgba(180, 60, 100, 0.28), inset 0 1px 0 rgba(255,255,255,0.5);
+}
+.m2d-glass {
+  position: relative;
+  aspect-ratio: 360 / 580;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #fff8fc;
+  box-shadow: inset 0 0 0 3px rgba(255,255,255,0.7);
+}
+.m2d-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 100%, #ffe08a55 0%, transparent 45%),
+    linear-gradient(180deg, #e8d0ff 0%, #ffd0e8 55%, #fff0f8 100%);
+}
+#m2dChar {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: block;
+  animation: m2dFloat 3.2s ease-in-out infinite;
+}
+#m2dCanvas {
+  display: none;
+}
+@keyframes m2dFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.m2d-name {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%);
+  z-index: 2;
+  background: rgba(239, 107, 138, 0.92);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: 999px;
+  letter-spacing: 0.06em;
+}
+.m2d-hint {
+  margin: 12px 0 0;
+  color: #9a5a78;
+  font-size: 13px;
+  text-align: center;
+}
+body.scene-makeup .makeup-panel {
+  background: rgba(255, 248, 252, 0.97);
+  border: 1px solid rgba(239, 107, 138, 0.2);
 }
 
 .toast {
@@ -240,27 +492,113 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
   left: 14px;
   top: 76px;
   z-index: 8;
-  color: rgba(255,255,255,0.8);
+  color: rgba(255,255,255,0.9);
   font-size: 12px;
-  background: rgba(0,0,0,0.28);
+  background: rgba(0,0,0,0.35);
   padding: 6px 10px;
   border-radius: 999px;
   pointer-events: none;
+  max-width: min(420px, calc(100vw - 320px));
+}
+
+/* —— Responsive: phone / tablet / desktop —— */
+@media (max-width: 1024px) {
+  .brand h1 { font-size: 18px; }
+  .scene-nav button { padding: 8px 12px; font-size: 12px; min-height: 36px; }
+  .hud-body { width: min(260px, 38vw); }
+  .btn { min-height: 42px; padding: 12px 14px; }
 }
 
 @media (max-width: 720px) {
-  .top-bar { flex-wrap: wrap; }
+  .top-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+    padding-top: max(10px, env(safe-area-inset-top));
+  }
+  .brand { width: 100%; }
+  .scene-nav {
+    margin-left: 0;
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+  .scene-nav button {
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding: 8px 14px;
+  }
+  .wallet { margin-left: auto; }
   .hud-panel {
     top: auto;
-    bottom: 12px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    right: 10px;
+    left: auto;
+    width: auto;
+    max-height: none;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  .hud-body {
+    width: min(280px, calc(100vw - 24px));
+    max-height: 34vh;
+    flex-direction: column;
+  }
+  .hud-card { min-width: 0; flex-shrink: 0; }
+  .hint {
+    top: auto;
+    bottom: calc(34vh + 16px);
+    left: 10px;
+    right: 10px;
+    max-width: none;
+    font-size: 11px;
+  }
+  .makeup-panel {
+    top: auto;
+    bottom: max(12px, env(safe-area-inset-bottom));
     right: 10px;
     left: 10px;
     width: auto;
-    max-height: 36vh;
-    flex-direction: row;
-    overflow-x: auto;
+    max-height: 42vh;
+    padding: 12px;
   }
-  .hud-card { min-width: 180px; }
+  .makeup-options {
+    grid-template-columns: repeat(3, 1fr);
+    max-height: none;
+  }
+  .toast {
+    bottom: max(20px, env(safe-area-inset-bottom));
+    font-size: 13px;
+    max-width: 92vw;
+  }
+  .modal { padding: 12px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+}
+
+@media (max-width: 420px) {
+  .brand h1 { font-size: 16px; }
+  .hud-body { max-height: 30vh; }
+  .makeup-options { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 1280px) {
+  .hud-body { width: 300px; }
+  .brand h1 { font-size: 24px; }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .hud-panel {
+    top: 64px;
+    bottom: 8px;
+    right: 8px;
+    left: auto;
+    max-height: none;
+  }
+  .hud-body {
+    width: min(220px, 36vw);
+    max-height: calc(100vh - 80px);
+  }
   .hint { display: none; }
-  .makeup-panel { width: calc(100% - 28px); }
+  .makeup-panel { max-height: 70vh; overflow: auto; }
 }
