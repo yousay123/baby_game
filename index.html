@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>蜜糖生活 · 3D</title>
+  <link rel="stylesheet" href="/src/ui/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="game-canvas"></canvas>
+
+    <header class="top-bar">
+      <div class="brand">
+        <h1>蜜糖生活</h1>
+        <p id="sceneSubtitle">3D 温馨日常</p>
+      </div>
+      <nav class="scene-nav" id="sceneNav">
+        <button type="button" data-scene="makeup">化妆屋</button>
+        <button type="button" data-scene="market">超市</button>
+        <button type="button" data-scene="home">客厅</button>
+        <button type="button" data-scene="kitchen">厨房</button>
+        <button type="button" data-scene="dining">餐厅</button>
+      </nav>
+      <div class="wallet">钱包 ¥<span id="walletMoney">10000</span></div>
+    </header>
+
+    <aside class="hud-panel" id="hudPanel">
+      <div class="hud-card" id="questCard">
+        <strong id="questTitle">任务</strong>
+        <p id="questText">先化个美美的妆，再去超市买菜～</p>
+      </div>
+      <div class="hud-card" id="invCard">
+        <strong>物品</strong>
+        <ul id="invList" class="inv-list"></ul>
+      </div>
+      <div class="hud-actions" id="hudActions"></div>
+    </aside>
+
+    <div class="makeup-panel" id="makeupPanel" hidden>
+      <strong>蜜糖妆扮台</strong>
+      <div class="makeup-tabs" id="makeupTabs"></div>
+      <div class="makeup-options" id="makeupOptions"></div>
+      <button type="button" class="btn btn-coral" id="btnFinishMakeup">化好妆去超市</button>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+
+    <div class="modal" id="modal" hidden>
+      <div class="modal-card">
+        <h3 id="modalTitle">提示</h3>
+        <div id="modalBody"></div>
+        <div class="modal-actions" id="modalActions"></div>
+      </div>
+    </div>
+
+    <div class="hint" id="clickHint">点击地面走动 · 点击家具互动</div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

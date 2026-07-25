@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>蜜糖生活 · 化妆逛街做饭</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="world.css" />
+  <link rel="stylesheet" href="layout-v2.css" />
+</head>
+<body>
+  <div class="sparkles" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">👑</span>
+      <div>
+        <h1>蜜糖生活</h1>
+        <p id="sceneSubtitle">公主换装化妆屋</p>
+      </div>
+    </div>
+    <nav class="world-nav" id="worldNav" aria-label="场景导航">
+      <button type="button" class="nav-btn active" data-scene="makeup">💄 化妆</button>
+      <button type="button" class="nav-btn" data-scene="market">🛒 超市</button>
+      <button type="button" class="nav-btn" data-scene="home">🏠 回家</button>
+      <button type="button" class="nav-btn" data-scene="kitchen">🍳 厨房</button>
+    </nav>
+    <div class="actions" id="makeupActions">
+      <button type="button" class="btn btn-ghost" id="btnUndo" title="撤销">↩ 撤销</button>
+      <button type="button" class="btn btn-mint" id="btnRandom" title="随机搭配">✨ 惊喜</button>
+      <button type="button" class="btn btn-coral" id="btnReset" title="全部清除">🧹 重来</button>
+      <button type="button" class="btn btn-sunny" id="btnSave" title="保存照片">📷 拍照</button>
+      <button type="button" class="btn btn-mint" id="btnGoMarket">🛒 去超市</button>
+    </div>
+  </header>
+
+  <!-- ========== 化妆场景 ========== -->
+  <main class="stage scene" id="sceneMakeup" data-scene="makeup">
+    <section class="mirror" aria-label="化妆镜">
+      <div class="mirror-frame">
+        <div class="mirror-glass" id="captureArea">
+          <div class="bg-layer" id="bgLayer"></div>
+          <svg id="character" viewBox="0 0 360 580" role="img" aria-label="公主小女孩角色">
+            <defs>
+              <linearGradient id="faceShade" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35" />
+                <stop offset="55%" stop-color="#ffffff" stop-opacity="0" />
+                <stop offset="100%" stop-color="#000000" stop-opacity="0.06" />
+              </linearGradient>
+              <linearGradient id="silkShine" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
+                <stop offset="45%" stop-color="#ffffff" stop-opacity="0" />
+                <stop offset="100%" stop-color="#000000" stop-opacity="0.08" />
+              </linearGradient>
+              <linearGradient id="legShade" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#000" stop-opacity="0.08" />
+                <stop offset="45%" stop-color="#fff" stop-opacity="0.15" />
+                <stop offset="100%" stop-color="#000" stop-opacity="0.1" />
+              </linearGradient>
+              <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#c48" flood-opacity="0.18" />
+              </filter>
+            </defs>
+            <g id="hairBack"></g>
+            <g id="bagBack"></g>
+            <g id="legs"></g>
+            <g id="pants"></g>
+            <g id="skirt"></g>
+            <g id="dress"></g>
+            <g id="top"></g>
+            <g id="arms"></g>
+            <g id="sleeves"></g>
+            <path id="neck" d="M158 268 C156 300 162 318 180 322 C198 318 204 300 202 268 Z" fill="#FFD2B8" />
+            <g id="necklace"></g>
+            <ellipse id="earL" cx="94" cy="198" rx="15" ry="20" fill="#FFD2B8" />
+            <ellipse id="earR" cx="266" cy="198" rx="15" ry="20" fill="#FFD2B8" />
+            <ellipse cx="94" cy="201" rx="6" ry="9" fill="#F4A896" opacity="0.4" />
+            <ellipse cx="266" cy="201" rx="6" ry="9" fill="#F4A896" opacity="0.4" />
+            <ellipse id="face" cx="180" cy="192" rx="88" ry="98" fill="#FFD2B8" />
+            <ellipse cx="180" cy="192" rx="88" ry="98" fill="url(#faceShade)" />
+            <g id="blush"></g>
+            <g id="eyeshadow"></g>
+            <g id="eyes"></g>
+            <g id="eyeliner"></g>
+            <g id="lashes"></g>
+            <path id="browL" d="M122 155 Q148 142 170 154" fill="none" stroke="#5B3A2E" stroke-width="4.2" stroke-linecap="round" />
+            <path id="browR" d="M190 154 Q212 142 238 155" fill="none" stroke="#5B3A2E" stroke-width="4.2" stroke-linecap="round" />
+            <g id="nose"><ellipse cx="180" cy="220" rx="4.5" ry="3" fill="#F0A890" opacity="0.5" /></g>
+            <g id="lips"></g>
+            <g id="hairFront"></g>
+            <g id="glasses"></g>
+            <g id="earrings"></g>
+            <g id="accessory"></g>
+            <g id="hands">
+              <g id="handL"></g>
+              <g id="handR"></g>
+              <g id="nailsL"></g>
+              <g id="nailsR"></g>
+            </g>
+            <g id="shoes"></g>
+            <g id="bagFront"></g>
+          </svg>
+          <div class="name-tag" id="nameTag">小蜜糖</div>
+        </div>
+      </div>
+      <p class="hint">化好妆、换好装，就可以去超市买菜啦～</p>
+    </section>
+
+    <aside class="toolbox" aria-label="化妆换装工具箱">
+      <div class="mode-switch" role="tablist" aria-label="模式切换">
+        <button type="button" class="mode-btn active" data-mode="makeup" id="modeMakeup">💄 化妆台</button>
+        <button type="button" class="mode-btn" data-mode="dress" id="modeDress">👗 换装间</button>
+      </div>
+      <nav class="tabs" id="tabs" role="tablist"></nav>
+      <div class="panel" id="panel" role="tabpanel"></div>
+      <p class="item-count" id="itemCount"></p>
+    </aside>
+  </main>
+
+  <!-- ========== 超市场景 ========== -->
+  <section class="scene world-scene" id="sceneMarket" data-scene="market" hidden>
+    <div class="world-hud">
+      <div class="hud-card store-brand-card">
+        <strong>蜜糖超市</strong>
+        <p id="marketQuest">先拿购物车，再沿货架选购，最后去收银台结账回家</p>
+      </div>
+      <div class="hud-card cart-hud">
+        <strong>购物车 <span id="cartCount">0</span> 件</strong>
+        <ul id="cartList" class="cart-list"></ul>
+        <p class="money">合计 ¥<span id="cartTotal">0</span> · 钱包 ¥<span id="walletMoney">10000</span></p>
+        <div class="hud-btns">
+          <button type="button" class="btn btn-ghost btn-sm" id="btnClearCart">清空</button>
+          <button type="button" class="btn btn-coral btn-sm" id="btnGoCheckout">去结账</button>
+        </div>
+      </div>
+      <div class="hud-card">
+        <strong>今日特价</strong>
+        <p class="promo-line">蔬菜满3件减¥2 · 牛奶特惠中</p>
+      </div>
+      <div class="hud-tips">点地板走路 · 走近货架点商品 · 推车结账后回家</div>
+    </div>
+    <div class="world-map market-map mart-v2" id="marketMap">
+      <div class="mart-wall"></div>
+      <div class="mart-floor"></div>
+      <div class="mart-light l1"></div>
+      <div class="mart-light l2"></div>
+      <div class="mart-light l3"></div>
+
+      <!-- 后墙冷柜一排 -->
+      <div class="cooler-row">
+        <div class="aisle cooler" data-zone="drinks" data-cat="drinks">
+          <div class="cooler-case">
+            <div class="cooler-top">冷藏饮料</div>
+            <div class="cooler-glass">
+              <div class="shelf-goods" data-cat="drinks"></div>
+            </div>
+          </div>
+        </div>
+        <div class="aisle cooler" data-zone="candy" data-cat="candy">
+          <div class="cooler-case">
+            <div class="cooler-top">冷藏甜品</div>
+            <div class="cooler-glass">
+              <div class="shelf-goods" data-cat="candy"></div>
+            </div>
+          </div>
+        </div>
+        <div class="aisle cooler" data-zone="snack" data-cat="snack">
+          <div class="cooler-case pale">
+            <div class="cooler-top">零食冷柜</div>
+            <div class="cooler-glass">
+              <div class="shelf-goods" data-cat="snack"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 左侧生鲜木货架 -->
+      <div class="produce-row">
+        <div class="aisle wood-rack" data-zone="veg" data-cat="veg">
+          <div class="wood-shelf">
+            <div class="wood-post l"></div>
+            <div class="wood-post r"></div>
+            <div class="rack-sign">生鲜蔬菜</div>
+            <div class="rack-tier">
+              <div class="price-strip"></div>
+              <div class="shelf-goods" data-cat="veg"></div>
+            </div>
+          </div>
+        </div>
+        <div class="aisle wood-rack" data-zone="daily" data-cat="daily">
+          <div class="wood-shelf">
+            <div class="wood-post l"></div>
+            <div class="wood-post r"></div>
+            <div class="rack-sign">粮油日用</div>
+            <div class="rack-tier">
+              <div class="price-strip"></div>
+              <div class="shelf-goods" data-cat="daily"></div>
+            </div>
+          </div>
+        </div>
+        <div class="aisle wood-rack" data-zone="toy" data-cat="toy">
+          <div class="wood-shelf accent">
+            <div class="wood-post l"></div>
+            <div class="wood-post r"></div>
+            <div class="rack-sign">玩具专柜</div>
+            <div class="rack-tier">
+              <div class="price-strip pink"></div>
+              <div class="shelf-goods" data-cat="toy"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="zone zone-carts cart-bay" data-zone="carts">
+        <div class="cart-rack">
+          <span class="cart-icon"></span><span class="cart-icon"></span><span class="cart-icon"></span>
+        </div>
+        <div class="zone-label">购物车</div>
+      </div>
+
+      <div class="checkout-lane zone" data-zone="checkout">
+        <div class="belt"></div>
+        <div class="register">
+          <div class="cashier-fig"></div>
+          <div class="zone-label">收银台</div>
+        </div>
+      </div>
+
+      <div class="zone zone-exit exit-doors" data-zone="exitHome">
+        <div class="auto-door"></div>
+        <div class="zone-label">出口回家</div>
+      </div>
+
+      <div class="actor girl walk-actor" id="marketGirl" style="left:14%;top:82%"></div>
+      <div class="click-hint" id="marketHint">点木地板，小蜜糖就会走过去</div>
+    </div>
+  </section>
+
+  <!-- ========== 家中客厅 ========== -->
+  <section class="scene world-scene" id="sceneHome" data-scene="home" hidden>
+    <div class="world-hud">
+      <div class="hud-card">
+        <strong>温馨小屋</strong>
+        <p id="homeQuest">点家具可开关电器，去厨房放菜做饭吧～</p>
+      </div>
+      <div class="hud-card">
+        <strong>家里的东西</strong>
+        <ul id="homeBagList" class="cart-list"></ul>
+      </div>
+    </div>
+    <div class="world-map home-map home-v2" id="homeMap">
+      <div class="home-wall"></div>
+      <div class="home-baseboard"></div>
+      <div class="floor home-floor"></div>
+
+      <!-- 墙面电器/装饰：横排对齐 -->
+      <div class="home-ac interactive" data-furn="ac" title="空调开关"></div>
+      <div class="home-ceiling-light interactive" data-furn="light" title="吊灯开关"></div>
+      <div class="home-clock"></div>
+      <div class="photo-row">
+        <div class="photo-frame pf1"></div>
+        <div class="photo-frame pf2"></div>
+        <div class="photo-frame pf3"></div>
+      </div>
+      <div class="home-window">
+        <div class="window-glass"></div>
+        <div class="curtain curtain-l"></div>
+        <div class="curtain curtain-r"></div>
+        <div class="window-sill"></div>
+        <div class="window-plant"></div>
+      </div>
+
+      <!-- 左墙：书架 + 落地灯 + 厨房门 -->
+      <div class="zone zone-kitchen-door" data-zone="toKitchen">
+        <div class="door-frame kitchen-door"><div class="door-panel"></div></div>
+        <div class="zone-label">厨房</div>
+      </div>
+      <div class="furn home-shelf interactive" data-furn="shelf" title="书架"></div>
+      <div class="furn home-lamp interactive" data-furn="lamp" title="落地灯开关">
+        <div class="lamp-shade"></div>
+        <div class="lamp-pole"></div>
+        <div class="lamp-base"></div>
+        <div class="lamp-glow"></div>
+      </div>
+
+      <!-- 客厅中心：沙发朝向电视，茶几在前，地毯居中 -->
+      <div class="home-rug"></div>
+      <div class="furn home-sofa interactive" data-furn="sofa" title="沙发">
+        <div class="sofa-back"></div>
+        <div class="sofa-seat"></div>
+        <div class="sofa-arm l"></div>
+        <div class="sofa-arm r"></div>
+        <div class="sofa-cushion"></div>
+        <div class="sofa-cushion c2"></div>
+      </div>
+      <div class="furn home-table interactive" data-furn="table" title="茶几">
+        <div class="table-top"></div>
+        <div class="table-leg"></div>
+        <div class="mug"></div>
+        <div class="book"></div>
+        <div class="remote"></div>
+      </div>
+      <div class="furn home-sidetable">
+        <div class="st-top"></div>
+        <div class="st-vase"></div>
+      </div>
+
+      <!-- 右墙：电视柜靠墙，绿植角落，出门门 -->
+      <div class="furn home-tvstand interactive" data-furn="tv" title="电视开关">
+        <div class="tv-screen"><span class="tv-glow"></span></div>
+        <div class="tv-base"></div>
+        <div class="cabinet"></div>
+        <div class="speaker sp-l"></div>
+        <div class="speaker sp-r"></div>
+      </div>
+      <div class="furn home-plant interactive" data-furn="plant" title="绿植">
+        <div class="pot"></div>
+        <div class="leaf a"></div>
+        <div class="leaf b"></div>
+        <div class="leaf c"></div>
+      </div>
+      <div class="furn home-dogbed interactive" data-furn="dogbed" title="狗窝"></div>
+      <div class="zone zone-out" data-zone="toMarket">
+        <div class="door-frame out-door"><div class="door-panel"></div></div>
+        <div class="zone-label">出门</div>
+      </div>
+
+      <div class="npc dad walk-actor" id="npcDad" data-npc="dad"></div>
+      <div class="npc mom walk-actor" id="npcMom" data-npc="mom"></div>
+      <div class="npc dog walk-actor" id="npcDog" data-npc="dog"></div>
+      <div class="actor girl walk-actor" id="homeGirl"></div>
+      <div class="speech" id="homeSpeech" hidden></div>
+    </div>
+  </section>
+
+  <!-- ========== 厨房 ========== -->
+  <section class="scene world-scene" id="sceneKitchen" data-scene="kitchen" hidden>
+    <div class="world-hud">
+      <div class="hud-card">
+        <strong>家庭厨房</strong>
+        <p id="cookQuest">放冰箱 → 取出 → 洗菜 → 开电器 → 做饭</p>
+      </div>
+      <div class="hud-card">
+        <strong>手提袋</strong>
+        <ul id="bagList" class="cart-list"></ul>
+      </div>
+      <div class="hud-card">
+        <strong>冰箱</strong>
+        <ul id="fridgeList" class="cart-list"></ul>
+      </div>
+      <div class="hud-card">
+        <strong>操作台</strong>
+        <ul id="prepList" class="cart-list"></ul>
+      </div>
+      <div class="hud-card">
+        <strong>做好的菜</strong>
+        <ul id="cookedList" class="cart-list"></ul>
+      </div>
+    </div>
+    <div class="world-map kitchen-map kitchen-v2" id="kitchenMap">
+      <div class="kitchen-wall"></div>
+      <div class="kitchen-backsplash"></div>
+      <div class="floor kitchen-floor"></div>
+
+      <!-- 左：高柜冰箱 -->
+      <div class="appliance fridge interactive" data-appliance="fridge" title="冰箱：存取食材">
+        <div class="fridge-door top"></div>
+        <div class="fridge-door bot"></div>
+        <div class="fridge-handle h1"></div>
+        <div class="fridge-handle h2"></div>
+        <button type="button" class="power-btn" title="冰箱电源">电</button>
+        <div class="app-label">冰箱</div>
+      </div>
+
+      <!-- 后墙：吊柜 + 烟机 -->
+      <div class="kitchen-upper-cabs"></div>
+      <div class="appliance hood interactive" data-appliance="hood" title="抽油烟机开关">
+        <div class="hood-body"></div>
+        <div class="hood-light"></div>
+        <div class="app-label">烟机</div>
+      </div>
+      <div class="appliance microwave interactive" data-appliance="microwave" title="微波炉开关">
+        <div class="mw-window"></div>
+        <div class="mw-panel"></div>
+        <button type="button" class="power-btn" title="微波炉电源">电</button>
+        <div class="app-label">微波</div>
+      </div>
+
+      <!-- 一字台面：水槽 | 灶台 | 电饭煲 -->
+      <div class="kitchen-base-cabs"></div>
+      <div class="kitchen-countertop"></div>
+
+      <div class="zone zone-sink" data-zone="sink">
+        <div class="sink-unit">
+          <div class="faucet"></div>
+          <div class="sink-basin"><div class="sink-water"></div></div>
+          <div class="cutting-board"></div>
+        </div>
+        <div class="zone-label">洗菜池</div>
+      </div>
+
+      <div class="station stove-station interactive" data-cook="stirfry" data-power="stove">
+        <div class="stove-unit">
+          <div class="burner b1"></div>
+          <div class="burner b2"></div>
+          <div class="pan"></div>
+        </div>
+        <button type="button" class="power-btn" title="燃气灶开关">火</button>
+        <div class="station-name">燃气灶</div>
+        <div class="station-desc">炒菜 · 洗好的菜+油</div>
+      </div>
+
+      <div class="station rice-station interactive" data-cook="rice" data-power="rice">
+        <div class="rice-cooker">
+          <div class="rc-lid"></div>
+          <div class="rc-body"></div>
+        </div>
+        <button type="button" class="power-btn" title="电饭煲开关">电</button>
+        <div class="station-name">电饭煲</div>
+        <div class="station-desc">蒸米饭</div>
+      </div>
+
+      <!-- 台下：洗碗机；右侧下柜：烤箱+汤锅区 -->
+      <div class="appliance dishwasher interactive" data-appliance="dishwasher" title="洗碗机开关">
+        <div class="dw-door"></div>
+        <button type="button" class="power-btn" title="洗碗机电源">电</button>
+        <div class="app-label">洗碗机</div>
+      </div>
+
+      <div class="station oven-station interactive" data-cook="bread" data-power="oven">
+        <div class="oven-unit">
+          <div class="oven-window"></div>
+          <div class="oven-knob"></div>
+        </div>
+        <button type="button" class="power-btn" title="烤箱开关">电</button>
+        <div class="station-name">烤箱</div>
+        <div class="station-desc">烤面包</div>
+      </div>
+
+      <div class="station pot-station interactive" data-cook="porridge" data-power="stove">
+        <div class="soup-pot">
+          <div class="pot-body"></div>
+          <div class="pot-steam"></div>
+        </div>
+        <div class="station-name">汤锅</div>
+        <div class="station-desc">煮粥 · 需开灶火</div>
+      </div>
+
+      <div class="zone zone-back-home" data-zone="toHome">
+        <div class="door-frame out-door"><div class="door-panel"></div></div>
+        <div class="zone-label">回客厅</div>
+      </div>
+
+      <div class="actor girl walk-actor" id="kitchenGirl"></div>
+      <div class="cook-progress" id="cookProgress" hidden>
+        <div class="cook-bar"><i id="cookBarFill"></i></div>
+        <p id="cookProgressText">正在做饭…</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <span>化妆 · 逛超市 · 回家 · 厨房做饭 —— 蜜糖的一天</span>
+  </footer>
+
+  <div class="toast" id="toast" hidden></div>
+  <div class="modal" id="modal" hidden>
+    <div class="modal-card">
+      <h3 id="modalTitle">提示</h3>
+      <p id="modalBody"></p>
+      <div class="modal-actions" id="modalActions"></div>
+    </div>
+  </div>
+
+  <script src="previews.js"></script>
+  <script src="wardrobe.js"></script>
+  <script src="game.js"></script>
+  <script src="actors.js"></script>
+  <script src="world.js"></script>
+</body>
+</html>
