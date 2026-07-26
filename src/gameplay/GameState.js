@@ -1,4 +1,4 @@
-import { MAKEUP, CHAR_STYLES } from "../core/constants.js";
+import { MAKEUP, CHAR_STYLES, CHAR_MODELS } from "../core/constants.js";
 
 function cloneItem(item) {
   return { ...item, washed: !!item.washed };
@@ -46,6 +46,7 @@ export function createGameState() {
     },
     makeup: { ...style.makeup },
     charStyle: style.id,
+    charModel: style.model || CHAR_MODELS[0].id,
     listeners: new Set(),
   };
 }

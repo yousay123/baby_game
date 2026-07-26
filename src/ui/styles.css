@@ -290,15 +290,15 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
   top: 76px;
   right: 14px;
   bottom: 18px;
-  width: min(320px, 38vw);
+  width: min(360px, 40vw);
   z-index: 12;
   background: var(--panel);
   border-radius: 18px;
-  padding: 14px;
+  padding: 12px 12px 14px;
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   overflow: hidden;
 }
 .makeup-panel-head {
@@ -306,6 +306,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
+  flex-shrink: 0;
 }
 .makeup-panel-head strong {
   color: #9a3a58;
@@ -315,40 +316,74 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
   font-size: 11px;
   color: var(--muted);
 }
-.char-styles {
+/* 一级导航：角色 / 风格 / 化妆 / 换装 / 背景 */
+.makeup-nav {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 8px 0 10px;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: #fff0f5;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
-.char-style-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  min-width: 64px;
-  min-height: 56px;
+.makeup-nav::-webkit-scrollbar { display: none; }
+.makeup-nav button {
+  flex: 1 0 auto;
+  min-width: 52px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
   padding: 8px 10px;
-  border: 2px solid transparent;
-  border-radius: 12px;
-  background: #fff6f9;
-  cursor: pointer;
-  font-size: 12px;
-  touch-action: manipulation;
-}
-.char-style-btn.active {
-  border-color: var(--coral);
-  background: #ffe8f0;
+  font-size: 13px;
   font-weight: 700;
+  color: #8a5a6e;
+  cursor: pointer;
+  min-height: 40px;
+  touch-action: manipulation;
+  white-space: nowrap;
 }
-.char-style-icon {
-  font-size: 22px;
-  line-height: 1.2;
+.makeup-nav button.active {
+  background: #ff6b8a;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(239, 107, 138, 0.35);
 }
-.char-style-name {
+/* 二级部位导航：横向滑动，一眼扫完 */
+.makeup-subnav {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 2px 6px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.makeup-subnav[hidden] { display: none !important; }
+.makeup-subnav button {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
   color: #5a4050;
+  cursor: pointer;
+  min-height: 36px;
+  touch-action: manipulation;
+  white-space: nowrap;
 }
-.makeup-options.options-props {
+.makeup-subnav button.active {
+  background: #ffe0ea;
+  border-color: var(--coral);
+  color: #9a3a58;
+  font-weight: 800;
+}
+.makeup-options.options-props,
+.makeup-options.options-catalog {
   grid-template-columns: repeat(2, 1fr);
 }
 .product-card-lg {
@@ -358,31 +393,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 .product-icon-lg {
   font-size: 40px !important;
 }
-.makeup-modes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-.makeup-modes button {
-  border: 1px solid var(--line);
-  background: #fff;
-  border-radius: 12px;
-  padding: 10px 12px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  min-height: 44px;
-  touch-action: manipulation;
-}
-.makeup-modes button.active {
-  background: #ff6b8a;
-  color: #fff;
-  border-color: #ff6b8a;
-}
+/* 兼容旧类名（若热更新残留） */
+.makeup-modes { display: none !important; }
 .makeup-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
+  overflow-x: auto;
 }
 .makeup-tabs button {
   border: 1px solid var(--line);
@@ -393,6 +410,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
   cursor: pointer;
   min-height: 40px;
   touch-action: manipulation;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 .makeup-tabs button.active {
   background: #ffe0ea;
@@ -408,6 +427,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
   overflow: auto;
   align-content: start;
   -webkit-overflow-scrolling: touch;
+  padding-right: 2px;
 }
 .makeup-options button,
 .makeup-options .product-card {
@@ -614,16 +634,20 @@ body.makeup-2d-active .top-bar { opacity: 0.95; }
 .m2d-name {
   position: absolute;
   left: 50%;
-  bottom: -6px;
+  top: 12px;
   transform: translateX(-50%);
-  z-index: 2;
-  background: rgba(239, 107, 138, 0.92);
+  z-index: 3;
+  background: linear-gradient(135deg, rgba(255, 120, 160, 0.95), rgba(239, 107, 138, 0.95));
   color: #fff;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 4px 14px;
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  padding: 8px 22px;
   border-radius: 999px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.12em;
+  box-shadow: 0 6px 16px rgba(200, 60, 100, 0.28);
+  white-space: nowrap;
+  pointer-events: none;
 }
 .m2d-hint {
   margin: 12px 0 0;
@@ -663,30 +687,62 @@ body.scene-makeup .makeup-panel {
 }
 .modal[hidden], .toast[hidden], .makeup-panel[hidden] { display: none !important; }
 .modal-card {
+  position: relative;
   width: min(420px, 100%);
   background: var(--panel);
   border-radius: 18px;
-  padding: 18px;
+  padding: 18px 18px 16px;
   box-shadow: var(--shadow);
 }
-@media (max-width: 720px) {
-  .modal-card:has(.recipe-panel) {
-    max-height: min(88vh, 720px);
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
-    width: 100%;
-    max-width: 100%;
-  }
-  .recipe-list {
-    max-height: min(36vh, 260px);
-  }
+.modal-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: #ffe8f0;
+  color: #9a3a58;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  touch-action: manipulation;
 }
+.modal-close:hover {
+  background: #ff6b8a;
+  color: #fff;
+}
+.modal-card.is-recipe,
 .modal-card:has(.recipe-panel) {
-  width: min(560px, 100%);
-  max-height: min(86vh, 720px);
-  overflow: auto;
+  width: min(580px, 100%);
+  max-height: min(88vh, 760px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 14px 12px;
+  padding-top: 12px;
 }
-.modal-card h3 { margin: 0 0 8px; }
+.modal-card.is-recipe #modalTitle,
+.modal-card:has(.recipe-panel) #modalTitle {
+  margin: 0 40px 8px 0;
+  font-size: 18px;
+  color: #9a3a58;
+}
+.modal-card.is-recipe #modalBody,
+.modal-card:has(.recipe-panel) #modalBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.modal-card h3 { margin: 0 40px 8px 0; }
 .modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -694,48 +750,79 @@ body.scene-makeup .makeup-panel {
   margin-top: 14px;
   flex-wrap: wrap;
 }
+.modal-actions[hidden] { display: none !important; }
 .modal-actions .btn {
   min-width: 88px;
   flex: 1 1 auto;
 }
 
-/* —— 菜谱面板 —— */
-.recipe-panel { color: var(--ink); }
+/* —— 菜谱面板：上分类 / 中列表 / 下详情，单一滚动 —— */
+.recipe-panel {
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  flex: 1;
+  height: 100%;
+}
 .recipe-power {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 0 0 8px;
-  font-size: 14px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  flex-shrink: 0;
+  font-size: 13px;
   color: var(--muted);
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #fff6f9;
 }
 .recipe-power.is-on { color: #2a8a4a; font-weight: 600; }
 .recipe-hint {
-  margin: 0 0 12px;
-  font-size: 13px;
+  margin: 0;
+  flex-shrink: 0;
+  font-size: 12px;
   color: var(--muted);
+  line-height: 1.4;
 }
 .recipe-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
-  margin: 0 0 10px;
+  margin: 0;
+  flex-shrink: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 .recipe-tab {
   appearance: none;
+  flex: 0 0 auto;
   border: 1px solid var(--line);
   background: #fff8fa;
   color: var(--ink);
   border-radius: 999px;
-  padding: 6px 12px;
+  padding: 7px 14px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 .recipe-tab.is-active {
   background: linear-gradient(180deg, #ff8aa8, #ef6b8a);
   border-color: transparent;
   color: #fff;
+}
+@media (max-width: 720px) {
+  .modal-card.is-recipe,
+  .modal-card:has(.recipe-panel) {
+    width: 100%;
+    max-width: 100%;
+    max-height: min(90vh, 720px);
+  }
 }
 #guideSteps {
   margin: 10px 0 0;
@@ -745,13 +832,16 @@ body.scene-makeup .makeup-panel {
 #invCard[hidden] { display: none !important; }
 .recipe-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
-  max-height: min(42vh, 320px);
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 8px;
+  margin: 0;
+  flex: 1 1 auto;
+  min-height: 120px;
+  max-height: none;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 2px 2px 8px;
+  padding: 2px 4px 6px 2px;
+  align-content: start;
 }
 .recipe-card {
   appearance: none;
@@ -811,8 +901,13 @@ body.scene-makeup .makeup-panel {
 
 .recipe-detail {
   border-top: 1px solid var(--line);
-  padding-top: 12px;
+  padding-top: 10px;
+  flex-shrink: 0;
+  max-height: min(38vh, 280px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
+.recipe-detail[hidden] { display: none !important; }
 .recipe-detail-head {
   display: flex;
   gap: 14px;
@@ -899,8 +994,9 @@ body.scene-makeup .makeup-panel {
   .btn { min-height: 46px; padding: 12px 16px; font-size: 15px; }
   .product-card { min-height: 72px; padding: 12px; }
   .char-style-btn { min-width: 72px; min-height: 64px; }
+  .makeup-subnav button,
   .makeup-tabs button,
-  .makeup-modes button { min-height: 42px; padding: 10px 12px; }
+  .makeup-nav button { min-height: 40px; padding: 8px 12px; }
 }
 
 @media (max-width: 720px) {
@@ -981,40 +1077,35 @@ body.scene-makeup .makeup-panel {
   }
   body.scene-makeup .makeup-panel-head { flex-shrink: 0; }
   body.scene-makeup .makeup-tip { display: none; }
-  body.scene-makeup .bg-styles {
-    flex-shrink: 0;
-    margin: 0;
-    gap: 4px;
+  body.scene-makeup .m2d-name {
+    font-size: 17px;
+    padding: 6px 16px;
+    top: 8px;
   }
-  body.scene-makeup .char-styles {
+  body.scene-makeup .makeup-nav {
     flex-shrink: 0;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    max-height: none;
-    margin: 0;
-    padding-bottom: 2px;
-    gap: 4px;
+    gap: 2px;
+    padding: 3px;
   }
-  body.scene-makeup .char-style-btn {
-    min-width: 48px;
-    min-height: 42px;
-    padding: 4px 6px;
+  body.scene-makeup .makeup-nav button {
+    min-width: 40px;
+    min-height: 34px;
+    padding: 6px 8px;
     font-size: 11px;
   }
-  body.scene-makeup .makeup-modes,
+  body.scene-makeup .makeup-subnav,
   body.scene-makeup .makeup-tabs {
     flex-shrink: 0;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 4px;
   }
-  body.scene-makeup .makeup-modes button,
+  body.scene-makeup .makeup-subnav button,
   body.scene-makeup .makeup-tabs button {
-    min-height: 36px;
-    padding: 6px 8px;
-    font-size: 12px;
-  }
-  body.scene-makeup .makeup-tabs {
-    max-height: 64px;
-    overflow-y: auto;
+    min-height: 32px;
+    padding: 5px 10px;
+    font-size: 11px;
   }
   body.scene-makeup .makeup-options {
     flex: 1 1 auto;

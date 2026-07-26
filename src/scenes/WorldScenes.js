@@ -1,5 +1,13 @@
 import * as THREE from "three";
-import { buildRoom, addWarmLights, makeInteractable, makeLabelSprite, setPlayCamera } from "../core/builders.js";
+import {
+  buildRoom,
+  addWarmLights,
+  makeInteractable,
+  makeLabelSprite,
+  setPlayCamera,
+  updateDoorAnimation,
+  findDoorway,
+} from "../core/builders.js";
 import { COLORS, MARKET_GOODS } from "../core/constants.js";
 import {
   createPlayerAvatar,
@@ -36,6 +44,7 @@ import {
   createRug,
   createSideTable,
   createPlant,
+  createFlowerPot,
   createWindow,
   createMarketShelf,
   createGoodsMesh,
@@ -99,6 +108,55 @@ export class BaseScene {
     this.player.position.z = p.z;
   }
 
+  /** 走到门前 → 开门动画 → 切场景 */
+  enterDoor(game, interactive) {
+    const obj = interactive?.object || interactive;
+    const door = findDoorway(obj) || obj;
+    const to = interactive?.data?.to || door?.userData?.to;
+    if (!to || !this.player) {
+      if (to) game.go(to);
+      return;
+    }
+    if (this.player.userData.sitting) setPlayerSit(this.player, false);
+
+    const wp = new THREE.Vector3();
+    door.getWorldPosition(wp);
+    const len = Math.hypot(wp.x, wp.z) || 1;
+    const { halfW, halfD } = this.getWalkHalf();
+    const approach = clampWalk(wp.x - (wp.x / len) * 1.35, wp.z - (wp.z / len) * 1.35, halfW, halfD);
+
+    const openThenGo = () => {
+      if (door.userData) {
+        door.userData.doorTarget = 1;
+        // 同步到子节点上的 interactive 数据
+        door.traverse((c) => {
+          if (c.userData) c.userData.doorTarget = 1;
+        });
+      }
+      game.toast("开门中…");
+      const start = performance.now();
+      const waitOpen = () => {
+        const open = door.userData?.doorOpen ?? 0;
+        if (open > 0.72 || performance.now() - start > 1100) {
+          game.go(to);
+          return;
+        }
+        requestAnimationFrame(waitOpen);
+      };
+      requestAnimationFrame(waitOpen);
+    };
+
+    const dist = Math.hypot(this.player.position.x - wp.x, this.player.position.z - wp.z);
+    if (dist < 1.9) {
+      openThenGo();
+      return;
+    }
+    this.player.userData.target = new THREE.Vector3(approach.x, 0, approach.z);
+    this.player.userData.walking = true;
+    this.player.userData._arrived = false;
+    this.player.userData.onArrive = openThenGo;
+  }
+
   setupCommon(game, roomOpts) {
     this.threeScene.clear();
     this.steams = [];
@@ -106,7 +164,7 @@ export class BaseScene {
     this.npcs = [];
     // Interior ambient — soft warm, not dark void
     this.threeScene.background = new THREE.Color(roomOpts.bg || 0xf5ebe3);
-    this.threeScene.fog = new THREE.Fog(roomOpts.bg || 0xf5ebe3, 14, 32);
+    this.threeScene.fog = new THREE.Fog(roomOpts.bg || 0xf5ebe3, 22, 48);
     addWarmLights(this.threeScene, {
       intensity: roomOpts.lightIntensity || 1.25,
       style: roomOpts.style || "home",
@@ -114,7 +172,7 @@ export class BaseScene {
 
     const width = roomOpts.width || 12;
     const depth = roomOpts.depth || 10;
-    const height = roomOpts.height || 5.5;
+    const height = roomOpts.height || 7.2;
     const room = buildRoom({
       ...roomOpts,
       height,
@@ -145,14 +203,19 @@ export class BaseScene {
     game.player = this.player;
     game.syncCarryVisual();
 
-    setPlayCamera(game.camera, { fov: 52 });
-    if (game.fp) {
-      game.fp.enabled = true;
-      const face = this.player.rotation.y;
-      game.fp.resetLook(face + Math.PI, 0.4, this.roomBounds);
-      game.fp.setBodyVisible(this.player, true);
-      game.fp.syncCamera(this.player, this.roomBounds);
-    }
+    // 全场景统一：超市同款「正后方高视角」
+    this.applyEntryCamera(game);
+  }
+
+  /** 首次进入场景的标准镜头（正面 + 高度 0.58） */
+  applyEntryCamera(game) {
+    setPlayCamera(game.camera, { fov: 58 });
+    if (!game.fp || !this.player) return;
+    game.fp.enabled = true;
+    const face = this.player.rotation.y;
+    game.fp.resetLook(face + Math.PI, 0.58, this.roomBounds);
+    game.fp.setBodyVisible(this.player, true);
+    game.fp.syncCamera(this.player, this.roomBounds);
   }
 
   handleClick(game, point, interactive) {
@@ -302,6 +365,7 @@ export class BaseScene {
       }
     }
     this.clampPlayerInRoom();
+    updateDoorAnimation(this.threeScene, dt);
     const animWalking = walking || stickWalking;
     this.player.userData.walking = animWalking;
     updateWalkAnim(this.player, dt, animWalking);
@@ -429,7 +493,7 @@ export class MakeupScene extends BaseScene {
 
   onInteract(game, interactive) {
     const d = interactive.data;
-    if (d.type === "door") game.go(d.to);
+    if (d.type === "door") this.enterDoor(game, interactive);
   }
 }
 
@@ -455,14 +519,10 @@ export class MarketScene extends BaseScene {
     // walk bounds come from setupCommon
     this.walkRadius = 0.38; // account for push cart
 
-    // Face into the store (−Z); camera stays behind at +Z
+    // Face into the store (−Z)；沿用统一进场镜头
     this.player.position.set(-2.2, 0, 6.0);
     this.player.rotation.y = Math.PI;
-    if (game.fp) {
-      game.fp.enabled = true;
-      game.fp.resetLook(0, 0.4, this.roomBounds);
-      game.fp.syncCamera(this.player, this.roomBounds);
-    }
+    this.applyEntryCamera(game);
     // Keep nameplate tiny — never enlarge in market
     const tag = this.player.getObjectByName("playerTag");
     if (tag) {
@@ -645,8 +705,15 @@ export class MarketScene extends BaseScene {
         game.toast("还没结账哦");
         return;
       }
-      game.go(to || "home");
-      game.toast(game.state.bag.length ? "提着购物袋到家啦" : "到家啦");
+      const dest = to || "home";
+      const bagHint = game.state.bag.length ? "提着购物袋到家啦" : "到家啦";
+      const realGo = game.go.bind(game);
+      game.go = (id) => {
+        game.go = realGo;
+        realGo(id);
+        if (id === dest) game.toast(bagHint);
+      };
+      this.enterDoor(game, { ...interactive, data: { ...interactive.data, to: dest } });
       return;
     }
     if (type === "carts") {
@@ -792,11 +859,13 @@ export class HomeScene extends BaseScene {
     this.threeScene.add(side);
     this.sideSeat = { x: -3.9, z: 2.0, yaw: Math.PI / 2 };
 
-    // Right wall: plant + dogbed
-    const plant = createPlant(4.5, -3.2);
+    // Right wall: 多样绿植 + 狗窝
+    const plant = createPlant(4.5, -3.2, "rose");
     makeInteractable(plant, { type: "furn", key: "plant" });
     this.threeScene.add(plant);
-    this.threeScene.add(createPlant(4.5, 2.8));
+    this.threeScene.add(createPlant(4.5, 2.8, "tall"));
+    this.threeScene.add(createPlant(-4.5, 3.2, "bush"));
+    this.threeScene.add(createPlant(3.2, -3.8, "tulip"));
 
     const dogbed = createDogBed();
     dogbed.position.set(3.6, 0, 2.2);
@@ -809,13 +878,16 @@ export class HomeScene extends BaseScene {
     this.acMesh = ac;
     this.threeScene.add(ac);
 
-    const ceilLamp = createCeilingLamp();
-    ceilLamp.position.set(0, 2.7, 0);
+    // 吊灯贴顶（层高约 7.2）
+    const roomH = this.roomBounds?.height || 7.2;
+    const ceilLamp = createCeilingLamp(0.9);
+    ceilLamp.position.set(0, roomH - 0.06, 0);
     makeInteractable(ceilLamp, { type: "furn", key: "light" });
     this.ceilLampMesh = ceilLamp;
-    this.ceilLight = new THREE.PointLight(0xfff0e0, 0.9, 14);
-    this.ceilLight.position.set(0, 2.5, 0);
-    this.threeScene.add(ceilLamp, this.ceilLight);
+    this.ceilLight = new THREE.PointLight(0xfff2d8, 0.25, 18);
+    this.ceilLight.position.set(0, roomH - 1.1, 0);
+    this.roomFillLight = new THREE.AmbientLight(0xfff0e8, 0.15);
+    this.threeScene.add(ceilLamp, this.ceilLight, this.roomFillLight);
 
     // —— Soft décor: fill empty space ——
     const cush1 = createCushion(0xffc8d8);
@@ -831,9 +903,16 @@ export class HomeScene extends BaseScene {
     makeInteractable(cabinet, { type: "furn", key: "shelf" });
     this.threeScene.add(cabinet);
 
-    const vase = createVase();
+    const vase = createVase([0xff6b8a, 0xff9ec0, 0xffc94a]);
     vase.position.set(4.0, 0.9, -1.2);
     this.threeScene.add(vase);
+    const vaseCoffee = createVase([0xb794f6, 0x7ec8ff]);
+    vaseCoffee.scale.setScalar(0.7);
+    vaseCoffee.position.set(-0.35, 0.48, 0.35);
+    this.threeScene.add(vaseCoffee);
+    const flowerDesk = createFlowerPot(0xff8ab0);
+    flowerDesk.position.set(-4.3, 0.55, 2.0);
+    this.threeScene.add(flowerDesk);
 
     [-2.2, 0, 2.2].forEach((x, i) => {
       const pic = createPicture([0xffb0c8, 0x7ec8ff, 0xffe08a][i]);
@@ -865,14 +944,27 @@ export class HomeScene extends BaseScene {
       this.tvScreen.material.emissiveIntensity = tvOn ? 0.6 : tvPaused ? 0.25 : 0;
     }
     const lampOn = isPowerOn(state, "lamp");
-    if (this.lampGlow) this.lampGlow.intensity = lampOn ? 1.3 : getPowerMode(state, "lamp") === "paused" ? 0.35 : 0;
+    if (this.lampGlow) {
+      this.lampGlow.intensity = lampOn ? 2.4 : getPowerMode(state, "lamp") === "paused" ? 0.5 : 0;
+      this.lampGlow.distance = lampOn ? 7 : 4;
+    }
     if (this.lampMesh?.userData.bulb) {
-      this.lampMesh.userData.bulb.material.emissiveIntensity = lampOn ? 0.9 : getPowerMode(state, "lamp") === "paused" ? 0.3 : 0.1;
+      this.lampMesh.userData.bulb.material.emissiveIntensity = lampOn ? 1.6 : getPowerMode(state, "lamp") === "paused" ? 0.4 : 0.05;
+      this.lampMesh.userData.bulb.material.emissive?.set?.(lampOn ? 0xffe8a0 : 0x443311);
     }
     const lightOn = isPowerOn(state, "light");
-    if (this.ceilLight) this.ceilLight.intensity = lightOn ? 0.9 : getPowerMode(state, "light") === "paused" ? 0.35 : 0.2;
+    if (this.ceilLight) {
+      this.ceilLight.intensity = lightOn ? 2.8 : getPowerMode(state, "light") === "paused" ? 0.55 : 0;
+      this.ceilLight.distance = lightOn ? 20 : 10;
+    }
+    if (this.roomFillLight) this.roomFillLight.intensity = lightOn ? 0.55 : 0.12;
     if (this.ceilLampMesh?.userData.bulb) {
-      this.ceilLampMesh.userData.bulb.material.emissiveIntensity = lightOn ? 0.8 : getPowerMode(state, "light") === "paused" ? 0.25 : 0.05;
+      this.ceilLampMesh.userData.bulb.material.emissiveIntensity = lightOn ? 1.8 : getPowerMode(state, "light") === "paused" ? 0.35 : 0.02;
+      this.ceilLampMesh.userData.bulb.material.color?.set?.(lightOn ? 0xfff8e0 : 0x888070);
+    }
+    if (this.ceilLampMesh?.userData.shade?.material) {
+      this.ceilLampMesh.userData.shade.material.emissive = new THREE.Color(lightOn ? 0xffe8b0 : 0x000000);
+      this.ceilLampMesh.userData.shade.material.emissiveIntensity = lightOn ? 0.45 : 0;
     }
     if (this.acMesh?.userData.led) {
       const ac = getPowerMode(state, "ac");
@@ -883,8 +975,7 @@ export class HomeScene extends BaseScene {
   onInteract(game, interactive) {
     const d = interactive.data;
     if (d.type === "door") {
-      if (game.player?.userData.sitting) setPlayerSit(game.player, false);
-      game.go(d.to);
+      this.enterDoor(game, interactive);
       return;
     }
     if (d.type === "furn") {

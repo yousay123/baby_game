@@ -57,11 +57,11 @@ export function createRenderer(canvas) {
 
 export function createCamera() {
   const camera = new THREE.PerspectiveCamera(
-    55,
+    58,
     window.innerWidth / window.innerHeight,
     0.3,
-    100
+    120
   );
-  camera.position.set(0, 7.5, 8);
+  camera.position.set(0, 8.5, 11);
   return camera;
 }

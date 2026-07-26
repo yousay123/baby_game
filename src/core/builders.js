@@ -369,7 +369,7 @@ function texturedBox(w, h, d, color, tex, opts = {}) {
 export function buildRoom({
   width = 12,
   depth = 10,
-  height = 2.85,
+  height = 7.2,
   floorColor = COLORS.floor,
   wallColor = COLORS.wall,
   accent = 0xffe0ea,
@@ -519,10 +519,13 @@ export function createEmbeddedDoor(doorData, wall, alongMid, xPos, zPos, doorW, 
   g.name = "doorway";
   const color = doorData.color || 0xb8956a;
   const frameC = darken(color, 0.18);
+  const pivot = new THREE.Group();
+  pivot.name = "doorPivot";
+  let swing = 1;
 
-  let panel;
   if (wall === "left" || wall === "right") {
     const face = wall === "left" ? 1 : -1;
+    swing = face;
     g.position.set(xPos, 0, alongMid);
     const frameL = box(thick + 0.04, doorH, 0.1, frameC);
     frameL.position.set(0, doorH / 2, -doorW / 2 + 0.05);
@@ -530,16 +533,21 @@ export function createEmbeddedDoor(doorData, wall, alongMid, xPos, zPos, doorW, 
     frameR.position.set(0, doorH / 2, doorW / 2 - 0.05);
     const frameTop = box(thick + 0.04, 0.1, doorW + 0.04, frameC);
     frameTop.position.set(0, doorH - 0.05, 0);
-    panel = box(0.07, doorH - 0.14, doorW - 0.14, color);
-    panel.position.set(face * (thick * 0.35), doorH / 2, 0);
+    // 铰链在门缝一侧，门板绕 Y 轴打开
+    const hingeZ = -doorW / 2 + 0.07;
+    pivot.position.set(face * (thick * 0.35), 0, hingeZ);
+    const panel = box(0.07, doorH - 0.14, doorW - 0.14, color);
+    panel.position.set(0, doorH / 2, (doorW - 0.14) / 2);
     const mold = box(0.02, doorH * 0.38, doorW - 0.32, darken(color, 0.1));
     mold.position.set(face * 0.045, 0, 0);
     const knob = sphere(0.045, 0xe8d080, { metalness: 0.55, roughness: 0.35 });
-    knob.position.set(face * 0.09, -0.05, doorW * 0.22);
+    knob.position.set(face * 0.09, -0.05, (doorW - 0.14) * 0.28);
     panel.add(mold, knob);
-    g.add(frameL, frameR, frameTop, panel);
+    pivot.add(panel);
+    g.add(frameL, frameR, frameTop, pivot);
   } else {
     const face = wall === "back" ? 1 : -1;
+    swing = -face;
     g.position.set(alongMid, 0, zPos);
     const frameL = box(0.1, doorH, thick + 0.04, frameC);
     frameL.position.set(-doorW / 2 + 0.05, doorH / 2, 0);
@@ -547,15 +555,23 @@ export function createEmbeddedDoor(doorData, wall, alongMid, xPos, zPos, doorW, 
     frameR.position.set(doorW / 2 - 0.05, doorH / 2, 0);
     const frameTop = box(doorW + 0.04, 0.1, thick + 0.04, frameC);
     frameTop.position.set(0, doorH - 0.05, 0);
-    panel = box(doorW - 0.14, doorH - 0.14, 0.07, color);
-    panel.position.set(0, doorH / 2, face * (thick * 0.35));
+    const hingeX = -doorW / 2 + 0.07;
+    pivot.position.set(hingeX, 0, face * (thick * 0.35));
+    const panel = box(doorW - 0.14, doorH - 0.14, 0.07, color);
+    panel.position.set((doorW - 0.14) / 2, doorH / 2, 0);
     const mold = box(doorW - 0.32, doorH * 0.38, 0.02, darken(color, 0.1));
     mold.position.set(0, 0, face * 0.045);
     const knob = sphere(0.045, 0xe8d080, { metalness: 0.55, roughness: 0.35 });
-    knob.position.set(doorW * 0.22, -0.05, face * 0.09);
+    knob.position.set((doorW - 0.14) * 0.28, -0.05, face * 0.09);
     panel.add(mold, knob);
-    g.add(frameL, frameR, frameTop, panel);
+    pivot.add(panel);
+    g.add(frameL, frameR, frameTop, pivot);
   }
+
+  g.userData.doorPivot = pivot;
+  g.userData.doorOpen = 0;
+  g.userData.doorTarget = 0;
+  g.userData.doorSwing = swing;
 
   makeInteractable(g, {
     type: "door",
@@ -570,6 +586,31 @@ export function createEmbeddedDoor(doorData, wall, alongMid, xPos, zPos, doorW, 
   }
 
   return g;
+}
+
+/** 每帧更新房间门开合 */
+export function updateDoorAnimation(root, dt) {
+  if (!root) return;
+  root.traverse((o) => {
+    if (o.name !== "doorway" || !o.userData?.doorPivot) return;
+    const t = o.userData.doorTarget ?? 0;
+    let cur = o.userData.doorOpen ?? 0;
+    const speed = 4.2;
+    cur += (t - cur) * Math.min(1, dt * speed);
+    if (Math.abs(t - cur) < 0.01) cur = t;
+    o.userData.doorOpen = cur;
+    const swing = o.userData.doorSwing ?? 1;
+    o.userData.doorPivot.rotation.y = cur * Math.PI * 0.82 * swing;
+  });
+}
+
+export function findDoorway(obj) {
+  let o = obj;
+  while (o) {
+    if (o.name === "doorway") return o;
+    o = o.parent;
+  }
+  return null;
 }
 
 export function setPlayCamera(camera, opts = {}) {

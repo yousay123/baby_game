@@ -17,21 +17,24 @@ export class ThirdPersonControls {
     this.canvas = canvas;
     this.camera = camera;
     this.yaw = 0;
-    this.pitch = 0.4;
+    /** 进场默认俯仰：与超市「正后方高视角」一致 */
+    this.pitch = 0.58;
     this.sensitivity = 0.0055;
     this.moveSpeed = 4.0;
-    this.distance = 6.5;
-    this.minDist = 3.0;
-    this.maxDist = 10;
-    this.basePitch = 0.4;
-    this.baseDist = 6.5;
-    this.minPitch = 0.15;
-    this.maxPitch = 0.95;
+    this.distance = 10.5;
+    this.minDist = 5;
+    this.maxDist = 18;
+    this.basePitch = 0.58;
+    this.baseDist = 10.5;
+    this.minPitch = 0.22;
+    this.maxPitch = 0.88;
     this.dragging = false;
     this.enabled = true;
     this.inspectMode = false;
     this.userLock = false;
     this.snapNext = false;
+    this._preferRoomCenter = false;
+    this._preferFrontView = false;
     this._ideal = new THREE.Vector3();
     this._look = new THREE.Vector3();
     this._moved = false;
@@ -113,24 +116,39 @@ export class ThirdPersonControls {
     );
   }
 
-  resetLook(yaw = 0, pitch = 0.4, bounds = null) {
-    // Mid third-person — see character + room ahead, not bird's-eye empty floor
-    this.yaw = yaw;
-    this.pitch = Math.max(this.minPitch, Math.min(0.55, pitch));
+  /** 吸附到正前/正后/正左/正右，避免进场斜角 */
+  snapYawCardinal(yaw) {
+    const step = Math.PI / 2;
+    return Math.round(yaw / step) * step;
+  }
+
+  /**
+   * 进场镜头：角色正后方 + 超市同款高俯视
+   * pitch 默认 0.58（与蜜糖超市截图一致），各场景勿再改高度
+   */
+  resetLook(yaw = 0, pitch = 0.58, bounds = null) {
+    this.yaw = this.snapYawCardinal(yaw);
+    this.pitch = Math.max(this.minPitch, Math.min(0.72, pitch ?? 0.58));
     this.basePitch = this.pitch;
-    const span = bounds ? Math.min(bounds.halfW, bounds.halfD) : 6;
-    const portrait = typeof window !== "undefined" && window.innerHeight > window.innerWidth * 1.1;
-    // 竖屏手机拉远一点，避免角色占满屏挡住房间
-    const minD = portrait ? 6.2 : 5.2;
-    const maxD = portrait ? 8.4 : 7.2;
-    this.distance = Math.min(maxD, Math.max(minD, span * (portrait ? 1.05 : 0.85)));
+    const span = bounds ? Math.min(bounds.halfW, bounds.halfD) : 7;
+    const roomDiag = bounds ? Math.hypot(bounds.halfW * 2, bounds.halfD * 2) : 14;
+    const portrait =
+      typeof window !== "undefined" && window.innerHeight > window.innerWidth * 1.1;
+    // 与超市进场相近的远近：略远一点以看清全屋
+    const minD = portrait ? 9.5 : 8.5;
+    const maxD = portrait ? 14.5 : 13.5;
+    this.distance = Math.min(
+      maxD,
+      Math.max(minD, span * (portrait ? 1.75 : 1.55), roomDiag * 0.5)
+    );
     this.baseDist = this.distance;
-    this.maxDist = Math.min(11, Math.max(7.5, span * 1.25));
-    this.minDist = portrait ? 4.2 : 3.0;
-    this.maxPitch = 0.95;
+    this.maxDist = Math.min(20, Math.max(14, span * 2.3, roomDiag * 0.75));
+    this.minDist = portrait ? 6 : 5;
+    this.maxPitch = 0.88;
     this.inspectMode = false;
     this.userLock = false;
     this.snapNext = true;
+    this._preferFrontView = true;
   }
 
   setBodyVisible(player, visible = true) {
@@ -152,48 +170,89 @@ export class ThirdPersonControls {
       this.distance += (this.baseDist - this.distance) * 0.03;
       return;
     }
-    const targetPitch = Math.max(0.35, Math.min(this.basePitch, 0.55));
-    const targetDist = Math.max(this.minDist, Math.min(5.8, this.baseDist * 0.78));
+    const targetPitch = Math.max(0.42, Math.min(this.basePitch, 0.62));
+    const targetDist = Math.max(this.minDist, Math.min(9.5, this.baseDist * 0.9));
     this.pitch += (targetPitch - this.pitch) * 0.04;
     this.distance += (targetDist - this.distance) * 0.04;
+  }
+
+  _camPos(px, pz, yaw, pitch, dist, py = 1.1, lift = 0.7) {
+    const sinY = Math.sin(yaw);
+    const cosY = Math.cos(yaw);
+    const cosP = Math.cos(pitch);
+    const sinP = Math.sin(pitch);
+    return {
+      x: px + sinY * cosP * dist,
+      y: py + sinP * dist + lift,
+      z: pz + cosY * cosP * dist,
+    };
   }
 
   syncCamera(player, bounds = null) {
     if (!player || !this.enabled) return;
     const px = player.position.x;
     const pz = player.position.z;
-    const py = 0.75;
-    const sinY = Math.sin(this.yaw);
-    const cosY = Math.cos(this.yaw);
-    const cosP = Math.cos(this.pitch);
-    const sinP = Math.sin(this.pitch);
 
-    // Strict room box — never leave the room
-    const inset = 0.35;
+    const inset = 0.15;
     const hw = bounds ? bounds.halfW - inset : 20;
     const hd = bounds ? bounds.halfD - inset : 20;
-    const hMax = (bounds?.height || 5.5) - 0.35;
-    const hMin = 1.15;
+    const hMax = Math.max(3.2, (bounds?.height || 7) - 0.15);
+    const hMin = 2.2;
 
-    let dist = Math.max(this.distance, this.minDist);
+    const fits = (x, y, z) =>
+      !bounds || (x >= -hw && x <= hw && z >= -hd && z <= hd && y >= hMin && y <= hMax);
 
-    for (let i = 0; i < 18; i++) {
-      const x = px + sinY * cosP * dist;
-      const y = py + sinP * dist + 0.45;
-      const z = pz + cosY * cosP * dist;
-      const inside =
-        !bounds ||
-        (x >= -hw && x <= hw && z >= -hd && z <= hd && y >= hMin && y <= hMax);
-      this._ideal.set(
-        THREE.MathUtils.clamp(x, -hw, hw),
-        THREE.MathUtils.clamp(y, hMin, hMax),
-        THREE.MathUtils.clamp(z, -hd, hd)
+    // 进场：只在 0/90/180/270° 正面方位里选，高度(pitch)不变
+    if (bounds && this._preferFrontView && !this.userLock && !this.dragging) {
+      const preferred = this.snapYawCardinal(this.yaw);
+      const tryYaws = [preferred, preferred + Math.PI, preferred + Math.PI / 2, preferred - Math.PI / 2].map(
+        (y) => this.snapYawCardinal(y)
       );
-      if (inside || dist <= this.minDist + 0.05) break;
-      dist = Math.max(this.minDist, dist * 0.86);
+      const pitch = this.basePitch; // 锁定进场高度
+      let best = null;
+      for (let yi = 0; yi < tryYaws.length; yi++) {
+        const y = tryYaws[yi];
+        let dist = Math.max(this.distance, this.minDist);
+        for (let i = 0; i < 22; i++) {
+          const p = this._camPos(px, pz, y, pitch, dist);
+          if (fits(p.x, p.y, p.z)) {
+            // 优先：原定正面方位 > 更远距离
+            const score = dist + (yi === 0 ? 40 : yi === 1 ? 8 : 0);
+            if (!best || score > best.score) best = { score, yaw: y, dist, ...p };
+            break;
+          }
+          dist = Math.max(this.minDist, dist * 0.92);
+        }
+      }
+      if (best) {
+        this.yaw = best.yaw;
+        this.pitch = pitch;
+        this.basePitch = pitch;
+        this.distance = Math.max(best.dist, this.minDist);
+        this.baseDist = this.distance;
+        this._ideal.set(best.x, best.y, best.z);
+      }
+      this._preferFrontView = false;
+      this._preferRoomCenter = false;
     }
 
-    // Final hard clamp inside room
+    let dist = Math.max(this.distance, this.minDist);
+    let pitch = this.pitch;
+    for (let i = 0; i < 22; i++) {
+      const p = this._camPos(px, pz, this.yaw, pitch, dist);
+      this._ideal.set(
+        THREE.MathUtils.clamp(p.x, -hw, hw),
+        THREE.MathUtils.clamp(p.y, hMin, hMax),
+        THREE.MathUtils.clamp(p.z, -hd, hd)
+      );
+      if (fits(p.x, p.y, p.z) || dist <= this.minDist + 0.05) {
+        this.pitch = pitch;
+        break;
+      }
+      if (pitch > 0.36 && p.y > hMax) pitch = Math.max(0.36, pitch - 0.035);
+      else dist = Math.max(this.minDist, dist * 0.92);
+    }
+
     if (bounds) {
       this._ideal.x = THREE.MathUtils.clamp(this._ideal.x, -hw, hw);
       this._ideal.z = THREE.MathUtils.clamp(this._ideal.z, -hd, hd);
@@ -204,19 +263,21 @@ export class ThirdPersonControls {
       this.camera.position.copy(this._ideal);
       this.snapNext = false;
     } else {
-      this.camera.position.lerp(this._ideal, 0.2);
-      // Keep lerp result inside too
+      this.camera.position.lerp(this._ideal, 0.18);
       if (bounds) {
         this.camera.position.x = THREE.MathUtils.clamp(this.camera.position.x, -hw, hw);
         this.camera.position.z = THREE.MathUtils.clamp(this.camera.position.z, -hd, hd);
         this.camera.position.y = THREE.MathUtils.clamp(this.camera.position.y, hMin, hMax);
       }
     }
-    this._look.set(px, 1.05, pz);
+
+    const sinY = Math.sin(this.yaw);
+    const cosY = Math.cos(this.yaw);
+    // 看向角色前方一点，便于看见屋内陈设
+    this._look.set(px - sinY * 0.8, 1.0, pz - cosY * 0.8);
     this.camera.lookAt(this._look);
 
-    // Overhead cam sits near head → sprite billboards explode; hide early
-    const showTags = this.pitch < 0.62;
+    const showTags = this.pitch < 0.85;
     player.traverse((c) => {
       if (c.isSprite && c.name === "playerTag") c.visible = showTags;
     });
@@ -240,12 +301,18 @@ export class ThirdPersonControls {
     let dx = -forward * sin + strafe * cos;
     let dz = -forward * cos - strafe * sin;
     const len = Math.hypot(dx, dz) || 1;
-    // 摇杆力度影响速度
     const stickMag = stickActive ? Math.min(1, Math.hypot(stickX, stickZ)) : 1;
-    const keyMag = KEYS.has("KeyW") || KEYS.has("KeyA") || KEYS.has("KeyS") || KEYS.has("KeyD") ||
-      KEYS.has("ArrowUp") || KEYS.has("ArrowDown") || KEYS.has("ArrowLeft") || KEYS.has("ArrowRight")
-      ? 1
-      : stickMag;
+    const keyMag =
+      KEYS.has("KeyW") ||
+      KEYS.has("KeyA") ||
+      KEYS.has("KeyS") ||
+      KEYS.has("KeyD") ||
+      KEYS.has("ArrowUp") ||
+      KEYS.has("ArrowDown") ||
+      KEYS.has("ArrowLeft") ||
+      KEYS.has("ArrowRight")
+        ? 1
+        : stickMag;
     dx = (dx / len) * this.moveSpeed * dt * keyMag;
     dz = (dz / len) * this.moveSpeed * dt * keyMag;
     return { dx, dz, faceYaw: Math.atan2(dx, dz) };

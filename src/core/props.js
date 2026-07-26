@@ -69,25 +69,103 @@ export function createWindow(x, y, z) {
   return g;
 }
 
-export function createPlant(x = 0, z = 0) {
+/**
+ * 绿植 / 鲜花
+ * variant: leaf | tall | bush | rose | tulip | sunflower
+ */
+export function createPlant(x = 0, z = 0, variant = "leaf") {
   const g = new THREE.Group();
-  const pot = cyl(0.16, 0.12, 0.26, 0xc45a4a, { roughness: 0.55, segments: 20 });
+  const potColors = {
+    leaf: 0xc45a4a,
+    tall: 0xb8956a,
+    bush: 0xd4a090,
+    rose: 0xf0e8e0,
+    tulip: 0xffe0ec,
+    sunflower: 0xe8d080,
+  };
+  const potC = potColors[variant] || 0xc45a4a;
+  const pot = cyl(0.16, 0.12, 0.26, potC, { roughness: 0.55, segments: 20 });
   pot.position.y = 0.13;
-  const rim = cyl(0.17, 0.17, 0.03, 0xd46a5a, { segments: 20 });
+  const rim = cyl(0.17, 0.17, 0.03, potC, { roughness: 0.45, segments: 20 });
   rim.position.y = 0.26;
   const dirt = cyl(0.13, 0.13, 0.04, 0x5a3a28);
   dirt.position.y = 0.26;
-  const stem = cyl(0.025, 0.02, 0.45, 0x3a7a40);
-  stem.position.y = 0.5;
-  [-0.1, 0.02, 0.1].forEach((ox, i) => {
-    const leaf = sphere(0.14, [0x4aaa50, 0x5ec060, 0x3a9a48][i], { segments: 14 });
-    leaf.scale.set(1.3, 0.4, 0.9);
-    leaf.position.set(ox, 0.7 + i * 0.08, 0.04 * (i - 1));
-    leaf.rotation.z = (i - 1) * 0.35;
-    g.add(leaf);
-  });
-  g.add(pot, rim, dirt, stem);
+  g.add(pot, rim, dirt);
+
+  if (variant === "tall") {
+    const stem = cyl(0.03, 0.025, 0.85, 0x3a7a40);
+    stem.position.y = 0.7;
+    g.add(stem);
+    for (let i = 0; i < 5; i++) {
+      const leaf = sphere(0.16, 0x4aaa50, { segments: 12 });
+      leaf.scale.set(1.5, 0.35, 0.8);
+      const a = (i / 5) * Math.PI * 2;
+      leaf.position.set(Math.cos(a) * 0.12, 0.55 + i * 0.14, Math.sin(a) * 0.12);
+      leaf.rotation.z = Math.cos(a) * 0.4;
+      g.add(leaf);
+    }
+  } else if (variant === "bush") {
+    for (let i = 0; i < 7; i++) {
+      const leaf = sphere(0.14 + (i % 3) * 0.02, [0x3a9a48, 0x5ec060, 0x4aaa50][i % 3], { segments: 12 });
+      leaf.scale.set(1.2, 0.9, 1.1);
+      const a = (i / 7) * Math.PI * 2;
+      leaf.position.set(Math.cos(a) * 0.14, 0.42 + (i % 3) * 0.08, Math.sin(a) * 0.14);
+      g.add(leaf);
+    }
+  } else if (variant === "rose" || variant === "tulip" || variant === "sunflower") {
+    const bloom =
+      variant === "rose"
+        ? [0xff6b8a, 0xff9ec0, 0xe8455a]
+        : variant === "tulip"
+          ? [0xff8a9a, 0xffc0d4, 0xff6b8a]
+          : [0xffc94a, 0xffe08a, 0xffb347];
+    for (let i = 0; i < 3; i++) {
+      const stem = cyl(0.015, 0.012, 0.42 + i * 0.06, 0x3a8a48);
+      const a = (i / 3) * Math.PI * 2;
+      stem.position.set(Math.cos(a) * 0.05, 0.48, Math.sin(a) * 0.05);
+      const flower = sphere(variant === "sunflower" ? 0.1 : 0.07, bloom[i], { segments: 10 });
+      flower.position.set(Math.cos(a) * 0.05, 0.72 + i * 0.04, Math.sin(a) * 0.05);
+      if (variant === "sunflower") {
+        const center = sphere(0.045, 0x5a3a20, { segments: 8 });
+        center.position.copy(flower.position);
+        center.position.y += 0.02;
+        g.add(center);
+      }
+      const leaf = sphere(0.08, 0x4aaa50, { segments: 8 });
+      leaf.scale.set(1.4, 0.3, 0.7);
+      leaf.position.set(Math.cos(a) * 0.1, 0.5, Math.sin(a) * 0.1);
+      g.add(stem, flower, leaf);
+    }
+  } else {
+    const stem = cyl(0.025, 0.02, 0.45, 0x3a7a40);
+    stem.position.y = 0.5;
+    g.add(stem);
+    [-0.1, 0.02, 0.1].forEach((ox, i) => {
+      const leaf = sphere(0.14, [0x4aaa50, 0x5ec060, 0x3a9a48][i], { segments: 14 });
+      leaf.scale.set(1.3, 0.4, 0.9);
+      leaf.position.set(ox, 0.7 + i * 0.08, 0.04 * (i - 1));
+      leaf.rotation.z = (i - 1) * 0.35;
+      g.add(leaf);
+    });
+  }
+
   g.position.set(x, 0, z);
+  g.userData.plantVariant = variant;
+  return g;
+}
+
+/** 桌面 / 柜面小花瓶（鲜花摆件） */
+export function createFlowerPot(color = 0xff6b8a) {
+  const g = new THREE.Group();
+  const pot = cyl(0.06, 0.08, 0.14, 0xfff8fc, { roughness: 0.4, segments: 14 });
+  pot.position.y = 0.07;
+  const stem = cyl(0.01, 0.01, 0.22, 0x3a8a48);
+  stem.position.y = 0.22;
+  const bloom = sphere(0.055, color, { segments: 10 });
+  bloom.position.y = 0.36;
+  const petal = sphere(0.04, color, { segments: 8 });
+  petal.position.set(0.04, 0.34, 0.02);
+  g.add(pot, stem, bloom, petal);
   return g;
 }
 
@@ -213,16 +291,20 @@ export function createAC() {
   return g;
 }
 
-export function createCeilingLamp() {
+export function createCeilingLamp(cordLen = 0.85) {
   const g = new THREE.Group();
-  const mount = cyl(0.08, 0.08, 0.15, 0xe8e0d8);
-  const shade = cyl(0.45, 0.5, 0.2, 0xfff3d0, { roughness: 0.4 });
-  shade.position.y = -0.2;
-  const glow = sphere(0.15, 0xfff8e0, { emissive: 0xffe8b0, emissiveIntensity: 0.5 });
-  glow.position.y = -0.15;
+  const mount = cyl(0.1, 0.1, 0.08, 0xe8e0d8);
+  mount.position.y = 0;
+  const cord = cyl(0.018, 0.018, cordLen, 0xd8d0c8);
+  cord.position.y = -cordLen / 2;
+  const shade = cyl(0.42, 0.52, 0.22, 0xfff3d0, { roughness: 0.4 });
+  shade.position.y = -cordLen - 0.05;
+  const glow = sphere(0.16, 0xfff8e0, { emissive: 0xffe8b0, emissiveIntensity: 0.35 });
+  glow.position.y = -cordLen;
   glow.name = "ceilBulb";
-  g.add(mount, shade, glow);
+  g.add(mount, cord, shade, glow);
   g.userData.bulb = glow;
+  g.userData.shade = shade;
   return g;
 }
 
@@ -589,13 +671,20 @@ export function createHood() {
 export function createMicrowave() {
   const g = new THREE.Group();
   const body = softBox(0.75, 0.5, 0.5, 0xe8e8e8);
-  const window = softBox(0.4, 0.3, 0.04, 0x2a3038);
+  const window = softBox(0.4, 0.3, 0.04, 0x2a3038, {
+    emissive: 0x000000,
+    emissiveIntensity: 0,
+  });
   window.position.set(-0.08, 0, 0.26);
   window.name = "mwWindow";
   const panel = softBox(0.18, 0.35, 0.04, 0xd0d0d0);
   panel.position.set(0.25, 0, 0.26);
-  g.add(body, window, panel);
+  const led = softBox(0.06, 0.04, 0.02, 0x666666, { emissive: 0x000000, emissiveIntensity: 0 });
+  led.position.set(0.25, 0.14, 0.28);
+  led.name = "mwLed";
+  g.add(body, window, panel, led);
   g.userData.window = window;
+  g.userData.led = led;
   return g;
 }
 
@@ -1251,17 +1340,22 @@ export function createPicture(color = 0xffb0c8) {
   return g;
 }
 
-/** Floor vase with flowers */
-export function createVase() {
+/** Floor / table vase with flowers */
+export function createVase(palette = [0xff6b8a, 0xffc94a, 0xff9ec0]) {
   const g = new THREE.Group();
   const vase = cyl(0.08, 0.12, 0.35, 0xffffff, { roughness: 0.35 });
   vase.position.y = 0.2;
-  const flowerColors = [0xff6b8a, 0xffc94a, 0xff9ec0];
+  const flowerColors = palette.length ? palette : [0xff6b8a, 0xffc94a, 0xff9ec0];
   flowerColors.forEach((c, i) => {
-    const f = sphere(0.06, c, { segments: 8 });
-    const a = (i / 3) * Math.PI * 2;
-    f.position.set(Math.cos(a) * 0.06, 0.48, Math.sin(a) * 0.06);
-    g.add(f);
+    const stem = cyl(0.012, 0.01, 0.2, 0x3a8a48);
+    const a = (i / flowerColors.length) * Math.PI * 2;
+    stem.position.set(Math.cos(a) * 0.04, 0.42, Math.sin(a) * 0.04);
+    const f = sphere(0.065, c, { segments: 8 });
+    f.position.set(Math.cos(a) * 0.05, 0.55, Math.sin(a) * 0.05);
+    const leaf = sphere(0.05, 0x4aaa50, { segments: 6 });
+    leaf.scale.set(1.3, 0.3, 0.7);
+    leaf.position.set(Math.cos(a) * 0.08, 0.4, Math.sin(a) * 0.08);
+    g.add(stem, f, leaf);
   });
   g.add(vase);
   return g;

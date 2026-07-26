@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { box, makeInteractable, makeLabelSprite, wallTexture } from "../core/builders.js";
+import { box, makeInteractable, makeLabelSprite, wallTexture, updateDoorAnimation } from "../core/builders.js";
 import { COLORS, APPLIANCE_NAMES } from "../core/constants.js";
 import { BaseScene } from "./WorldScenes.js";
 import { washPrep } from "../ui/HUD.js";
@@ -42,6 +42,7 @@ import {
   createDiningTable,
   createDiningChair,
   createPlant,
+  createFlowerPot,
   createWindow,
   createWallShelf,
   createCushion,
@@ -49,6 +50,7 @@ import {
   createPicture,
   createBuffet,
   createCandleSet,
+  createCabinet,
   createRug,
   softBox,
 } from "../core/props.js";
@@ -159,6 +161,11 @@ export class KitchenScene extends BaseScene {
     const mw = createMicrowave();
     mw.position.set(4.2, 1.2, -2.8);
     makeInteractable(mw, { type: "appliance", key: "microwave" });
+    this.mwGlow = new THREE.PointLight(0xffe08a, 0, 2.5);
+    this.mwGlow.position.copy(mw.position);
+    this.mwGlow.position.y += 0.35;
+    this.mwGlow.position.z += 0.2;
+    this.threeScene.add(this.mwGlow);
     this.mw = mw;
     this.threeScene.add(mw);
 
@@ -202,8 +209,14 @@ export class KitchenScene extends BaseScene {
     wallShelf.position.set(-2.5, 2.0, -3.2);
     this.threeScene.add(wallShelf);
 
-    this.threeScene.add(createPlant(4.5, 2.5));
-    this.threeScene.add(createPlant(-4.6, 2.8));
+    this.threeScene.add(createPlant(4.5, 2.5, "bush"));
+    this.threeScene.add(createPlant(-4.6, 2.8, "leaf"));
+    this.threeScene.add(createPlant(4.4, -2.6, "tulip"));
+    const kitFlower = createFlowerPot(0xff6b8a);
+    kitFlower.position.set(-1.2, 1.12, -2.35);
+    const kitFlower2 = createFlowerPot(0xffc94a);
+    kitFlower2.position.set(2.2, 1.12, -2.35);
+    this.threeScene.add(kitFlower, kitFlower2);
 
     const kitMat = softBox(2.2, 0.03, 1.2, 0xfff0e8, { roughness: 0.9 });
     kitMat.position.set(0, 0.02, 1.5);
@@ -292,7 +305,17 @@ export class KitchenScene extends BaseScene {
     }
     if (this.mw?.userData?.window) {
       const mw = getPowerMode(state, "microwave");
-      this.mw.userData.window.material.color.set(mw === "on" ? 0xffe08a : mw === "paused" ? 0x887744 : 0x2a3038);
+      const on = mw === "on";
+      const paused = mw === "paused";
+      this.mw.userData.window.material.color.set(on ? 0xfff0b0 : paused ? 0x887744 : 0x2a3038);
+      this.mw.userData.window.material.emissive = new THREE.Color(on ? 0xffcc66 : paused ? 0x553311 : 0x000000);
+      this.mw.userData.window.material.emissiveIntensity = on ? 1.2 : paused ? 0.35 : 0;
+      if (this.mw.userData.led?.material) {
+        this.mw.userData.led.material.color.set(on ? 0x4ade80 : paused ? 0xfbbf24 : 0x666666);
+        this.mw.userData.led.material.emissive = new THREE.Color(on ? 0x22c55e : 0x000000);
+        this.mw.userData.led.material.emissiveIntensity = on ? 0.9 : 0;
+      }
+      if (this.mwGlow) this.mwGlow.intensity = on ? 1.8 : paused ? 0.4 : 0;
     }
     // 冰箱电源开→开门，关/暂停→关门
     if (this.fridge) {
@@ -302,6 +325,7 @@ export class KitchenScene extends BaseScene {
 
   update(dt, game) {
     super.update(dt, game);
+    updateDoorAnimation(this.threeScene, dt);
     if (this.fridge) updateFridgeDoors(this.fridge, dt);
     this._sinkTime = (this._sinkTime || 0) + dt;
     if (this.sink) updateSinkWater(this.sink, this._sinkTime);
@@ -424,7 +448,7 @@ export class KitchenScene extends BaseScene {
       ) {
         game.toast("做好的菜记得先装盘再端过去哦");
       }
-      game.go(d.to);
+      this.enterDoor(game, interactive);
       return;
     }
 
@@ -548,14 +572,6 @@ export class DiningScene extends BaseScene {
     this.familyMoving = [];
     this.playerSeat = null;
 
-    // 餐厅俯瞰餐桌：相机抬高一些，方便看清桌面与家人
-    if (game.fp && this.player) {
-      const face = this.player.rotation.y;
-      game.fp.resetLook(face + Math.PI, 0.7, this.roomBounds);
-      game.fp.maxPitch = 1.05;
-      game.fp.syncCamera(this.player, this.roomBounds);
-    }
-
     this.threeScene.add(createWindow(-2.5, 1.7, -4.85));
     this.threeScene.add(createWindow(2.5, 1.7, -4.85));
 
@@ -638,8 +654,9 @@ export class DiningScene extends BaseScene {
     diningRug.position.set(0, 0, 0);
     this.threeScene.add(diningRug);
 
-    this.threeScene.add(createPlant(-4.2, -3.5), createPlant(4.2, -3.5));
-    this.threeScene.add(createPlant(-4.0, 3.2), createPlant(4.0, 3.2));
+    this.threeScene.add(createPlant(-4.2, -3.5, "tall"), createPlant(4.2, -3.5, "rose"));
+    this.threeScene.add(createPlant(-4.0, 3.2, "sunflower"), createPlant(4.0, 3.2, "bush"));
+    this.threeScene.add(createPlant(-3.2, 0.5, "tulip"));
 
     [-2.0, 2.0].forEach((x, i) => {
       const pic = createPicture([0xffc8d8, 0xc9b6ff][i]);
@@ -655,6 +672,9 @@ export class DiningScene extends BaseScene {
     sideCab.position.set(4.3, 0, 0);
     sideCab.rotation.y = -Math.PI / 2;
     this.threeScene.add(sideCab);
+    const sideFlower = createFlowerPot(0xb794f6);
+    sideFlower.position.set(4.05, 0.95, 0.15);
+    this.threeScene.add(sideFlower);
 
     this.refreshTableFood(game);
 
@@ -748,7 +768,7 @@ export class DiningScene extends BaseScene {
     if (d.type === "door") {
       if (game.player?.userData.sitting) setPlayerSit(game.player, false);
       this.playerSeat = null;
-      game.go(d.to);
+      this.enterDoor(game, interactive);
       return;
     }
     if (d.type === "furn" && d.sit) {

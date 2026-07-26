@@ -4,6 +4,7 @@ import {
   MARKET_GOODS,
   APPLIANCE_NAMES,
   CHAR_STYLES,
+  CHAR_MODELS,
   DISH_RECIPES,
   DISH_CATEGORIES,
   ALL_GOODS,
@@ -40,8 +41,9 @@ export class HUD {
   constructor(game) {
     this.game = game;
     this.toastTimer = null;
+    this.makeupSection = "makeup";
     this.makeupMode = "makeup";
-    this.makeupTab = "lipstick";
+    this.makeupTab = "faceShape";
 
     document.getElementById("sceneNav").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-scene]");
@@ -142,8 +144,9 @@ export class HUD {
     }, 2200);
   }
 
-  openModal(title, bodyHtml, actions) {
+  openModal(title, bodyHtml, actions = [], { hideFooter = false } = {}) {
     const modal = document.getElementById("modal");
+    const card = modal?.querySelector(".modal-card");
     document.getElementById("modalTitle").textContent = title;
     const body = document.getElementById("modalBody");
     if (typeof bodyHtml === "string") body.innerHTML = `<p>${bodyHtml}</p>`;
@@ -151,9 +154,19 @@ export class HUD {
       body.innerHTML = "";
       body.appendChild(bodyHtml);
     }
+    const isRecipe = !!(bodyHtml?.classList?.contains?.("recipe-panel"));
+    card?.classList.toggle("is-recipe", isRecipe);
+    const closeBtn = document.getElementById("modalClose");
+    if (closeBtn) {
+      closeBtn.onclick = () => {
+        modal.hidden = true;
+      };
+    }
     const box = document.getElementById("modalActions");
     box.innerHTML = "";
-    actions.forEach((a) => {
+    const list = hideFooter || isRecipe ? [] : actions;
+    box.hidden = list.length === 0;
+    list.forEach((a) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "btn " + (a.className || "btn-ghost");
@@ -906,7 +919,7 @@ export class HUD {
     });
 
     renderList(keepRecipeId || state.lastRecipeId);
-    this.openModal(stationName, wrap, [{ label: "关闭", className: "btn-ghost" }]);
+    this.openModal(stationName, wrap, [], { hideFooter: true });
   }
 
   openPlateModal(state) {
@@ -960,15 +973,39 @@ export class HUD {
   }
 
   bindMakeupUI() {
-    const modes = document.getElementById("makeupModes");
+    const nav = document.getElementById("makeupNav");
     const tabs = document.getElementById("makeupTabs");
     const options = document.getElementById("makeupOptions");
     const title = document.getElementById("makeupPanelTitle");
-    const stylesEl = document.getElementById("charStyles");
-    const bgEl = document.getElementById("bgStyles");
+    const hint = document.getElementById("makeupSectionHint");
     if (!tabs || !options) return;
 
-    const modeTabs = () => (this.makeupMode === "dress" ? MAKEUP.dressTabs : MAKEUP.makeupTabs);
+    const SECTION_META = {
+      model: { title: "角色底模", hint: "先选脸模，再细调妆造" },
+      style: { title: "一键风格", hint: "套用整套妆造与穿搭" },
+      makeup: { title: "蜜糖化妆台", hint: "点选部位，立刻上妆" },
+      dress: { title: "蜜糖换装间", hint: "点选部位，立刻换装" },
+      bg: { title: "镜中背景", hint: "换个场景拍照吧" },
+    };
+
+    const modeTabs = () => (this.makeupSection === "dress" ? MAKEUP.dressTabs : MAKEUP.makeupTabs);
+
+    const cardHtml = (o, selected, { big = false, dataAttr = "data-opt" } = {}) => {
+      const icon = o.icon
+        ? `<span class="product-icon${big ? " product-icon-lg" : ""}" aria-hidden="true">${o.icon}</span>`
+        : o.color
+          ? `<div class="swatch" style="background:${o.color}"></div>`
+          : "";
+      const desc = o.desc ? `<small class="product-desc">${o.desc}</small>` : "";
+      const colorDot = o.color
+        ? `<span class="product-dot" style="background:${o.color}"></span>`
+        : "";
+      return `<button type="button" ${dataAttr}="${o.id}" class="product-card ${big ? "product-card-lg" : ""} ${selected ? "selected" : ""}" title="${o.desc || o.name}">
+        ${icon}
+        <span class="product-name">${colorDot}${o.name}</span>
+        ${desc}
+      </button>`;
+    };
 
     const applyToViews = () => {
       emit(this.game.state);
@@ -978,89 +1015,78 @@ export class HUD {
     };
 
     const render = () => {
-      if (bgEl) {
-        const selBg = this.game.state.makeup.bg || "bgRose";
-        bgEl.innerHTML = `<span class="bg-styles-label">背景</span>${MAKEUP.bg
+      const section = this.makeupSection || "makeup";
+      nav?.querySelectorAll("button").forEach((b) => {
+        b.classList.toggle("active", b.dataset.section === section);
+      });
+      const meta = SECTION_META[section] || SECTION_META.makeup;
+      if (title) title.textContent = meta.title;
+      if (hint) hint.textContent = meta.hint;
+
+      const showSub = section === "makeup" || section === "dress";
+      tabs.hidden = !showSub;
+      options.classList.toggle("options-catalog", section === "model" || section === "style" || section === "bg");
+      options.classList.remove("options-props");
+
+      if (showSub) {
+        this.makeupMode = section;
+        const listTabs = modeTabs();
+        if (!listTabs.find((t) => t.id === this.makeupTab)) {
+          this.makeupTab = listTabs[0]?.id || "lipstick";
+        }
+        tabs.innerHTML = listTabs
           .map(
-            (b) =>
-              `<button type="button" data-bg="${b.id}" class="bg-style-btn ${selBg === b.id ? "active" : ""}" title="${b.desc}">
-                <span>${b.icon}</span>
-              </button>`
+            (t) =>
+              `<button type="button" data-tab="${t.id}" class="${t.id === this.makeupTab ? "active" : ""}">${t.name}</button>`
           )
-          .join("")}`;
+          .join("");
+        // 滚动到当前二级 Tab
+        requestAnimationFrame(() => {
+          tabs.querySelector("button.active")?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+        });
+        const list = MAKEUP[this.makeupTab] || [];
+        const selected = this.game.state.makeup[this.makeupTab];
+        const big = ["prop", "hat", "jewelry", "baby", "bag", "shoes", "sunglasses", "hairstyle"].includes(
+          this.makeupTab
+        );
+        options.classList.toggle("options-props", big);
+        options.innerHTML = list.map((o) => cardHtml(o, selected === o.id, { big })).join("");
+        return;
       }
-      if (stylesEl) {
-        stylesEl.innerHTML = CHAR_STYLES.map(
-          (s) => `<button type="button" data-style="${s.id}" class="char-style-btn ${this.game.state.charStyle === s.id ? "active" : ""}" title="${s.desc}">
-            <span class="char-style-icon">${s.icon}</span>
-            <span class="char-style-name">${s.name}</span>
-          </button>`
+
+      tabs.innerHTML = "";
+      if (section === "model") {
+        const sel = this.game.state.charModel || CHAR_MODELS[0].id;
+        options.innerHTML = CHAR_MODELS.map((m) =>
+          cardHtml(m, sel === m.id, { big: true, dataAttr: "data-model" })
+        ).join("");
+        return;
+      }
+      if (section === "style") {
+        options.innerHTML = CHAR_STYLES.map((s) =>
+          cardHtml(s, this.game.state.charStyle === s.id, { big: true, dataAttr: "data-style" })
+        ).join("");
+        return;
+      }
+      if (section === "bg") {
+        const selBg = this.game.state.makeup.bg || "bgRose";
+        options.innerHTML = MAKEUP.bg.map((b) =>
+          cardHtml(b, selBg === b.id, { big: true, dataAttr: "data-bg" })
         ).join("");
       }
-      if (modes) {
-        modes.querySelectorAll("button").forEach((b) => {
-          b.classList.toggle("active", b.dataset.mode === this.makeupMode);
-        });
-      }
-      if (title) {
-        title.textContent = this.makeupMode === "dress" ? "蜜糖换装间" : "蜜糖化妆台";
-      }
-      const listTabs = modeTabs();
-      if (!listTabs.find((t) => t.id === this.makeupTab)) {
-        this.makeupTab = listTabs[0]?.id || "lipstick";
-      }
-      tabs.innerHTML = listTabs
-        .map((t) => `<button type="button" data-tab="${t.id}" class="${t.id === this.makeupTab ? "active" : ""}">${t.name}</button>`)
-        .join("");
-      const list = MAKEUP[this.makeupTab] || [];
-      const selected = this.game.state.makeup[this.makeupTab];
-      const big = ["prop", "hat", "jewelry", "baby"].includes(this.makeupTab);
-      options.classList.toggle("options-props", big);
-      options.innerHTML = list
-        .map((o) => {
-          const icon = o.icon
-            ? `<span class="product-icon${big ? " product-icon-lg" : ""}" aria-hidden="true">${o.icon}</span>`
-            : o.color
-              ? `<div class="swatch" style="background:${o.color}"></div>`
-              : "";
-          const desc = o.desc ? `<small class="product-desc">${o.desc}</small>` : "";
-          const colorDot = o.color
-            ? `<span class="product-dot" style="background:${o.color}"></span>`
-            : "";
-          return `<button type="button" data-opt="${o.id}" class="product-card ${big ? "product-card-lg" : ""} ${selected === o.id ? "selected" : ""}">
-            ${icon}
-            <span class="product-name">${colorDot}${o.name}</span>
-            ${desc}
-          </button>`;
-        })
-        .join("");
     };
 
-    bgEl?.addEventListener("click", (e) => {
-      const b = e.target.closest("[data-bg]");
+    nav?.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-section]");
       if (!b) return;
-      this.game.state.makeup.bg = b.dataset.bg;
-      applyToViews();
-      const opt = MAKEUP.bg.find((x) => x.id === b.dataset.bg);
-      this.toast(`背景：${opt?.name || ""}`);
-      render();
-    });
-    stylesEl?.addEventListener("click", (e) => {
-      const b = e.target.closest("[data-style]");
-      if (!b) return;
-      const style = CHAR_STYLES.find((s) => s.id === b.dataset.style);
-      if (!style) return;
-      this.game.state.charStyle = style.id;
-      Object.assign(this.game.state.makeup, style.makeup);
-      applyToViews();
-      this.toast(`已切换风格：${style.name}`);
-      render();
-    });
-    modes?.addEventListener("click", (e) => {
-      const b = e.target.closest("[data-mode]");
-      if (!b) return;
-      this.makeupMode = b.dataset.mode;
-      this.makeupTab = modeTabs()[0]?.id || "lipstick";
+      this.makeupSection = b.dataset.section;
+      if (this.makeupSection === "makeup") {
+        this.makeupMode = "makeup";
+        this.makeupTab = MAKEUP.makeupTabs[0]?.id || "faceShape";
+      } else if (this.makeupSection === "dress") {
+        this.makeupMode = "dress";
+        this.makeupTab = MAKEUP.dressTabs[0]?.id || "hairstyle";
+      }
       render();
     });
     tabs.addEventListener("click", (e) => {
@@ -1070,6 +1096,38 @@ export class HUD {
       render();
     });
     options.addEventListener("click", (e) => {
+      const modelBtn = e.target.closest("[data-model]");
+      if (modelBtn) {
+        const model = CHAR_MODELS.find((m) => m.id === modelBtn.dataset.model);
+        if (!model) return;
+        this.game.state.charModel = model.id;
+        if (model.defaults) Object.assign(this.game.state.makeup, model.defaults);
+        applyToViews();
+        this.toast(`角色模型：${model.name}`);
+        render();
+        return;
+      }
+      const styleBtn = e.target.closest("[data-style]");
+      if (styleBtn) {
+        const style = CHAR_STYLES.find((s) => s.id === styleBtn.dataset.style);
+        if (!style) return;
+        this.game.state.charStyle = style.id;
+        if (style.model) this.game.state.charModel = style.model;
+        Object.assign(this.game.state.makeup, style.makeup);
+        applyToViews();
+        this.toast(`已切换风格：${style.name}`);
+        render();
+        return;
+      }
+      const bgBtn = e.target.closest("[data-bg]");
+      if (bgBtn) {
+        this.game.state.makeup.bg = bgBtn.dataset.bg;
+        applyToViews();
+        const opt = MAKEUP.bg.find((x) => x.id === bgBtn.dataset.bg);
+        this.toast(`背景：${opt?.name || ""}`);
+        render();
+        return;
+      }
       const b = e.target.closest("[data-opt]");
       if (!b) return;
       this.game.state.makeup[this.makeupTab] = b.dataset.opt;
