@@ -302,7 +302,8 @@ export class BaseScene {
     }
     this.clampPlayerInRoom();
     this.player.userData.walking = walking;
-    if (walking) updateWalkAnim(this.player, dt, true);
+    // 停下时也要跑动画更新，确保双腿并拢复位
+    updateWalkAnim(this.player, dt, walking);
     if (!walking && this.player.userData.onArrive && this.player.userData._arrived) {
       const cb = this.player.userData.onArrive;
       this.player.userData.onArrive = null;

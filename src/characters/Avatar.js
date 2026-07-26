@@ -128,9 +128,9 @@ export function createPlayerAvatar(state) {
 
   const skinOpt = { ...SKIN_OPT, emissive: skin };
 
-  /** 大腿 Group(leg*) → 小腿 Group(calf*) → 鞋，走路可屈膝 */
+  /** 大腿 Group(leg*) → 小腿 Group(calf*) → 鞋，走路可屈膝；静止腿距更近 */
   const makeLeg = (side) => {
-    const x = side * 0.06;
+    const x = side * 0.038;
     const thigh = new THREE.Group();
     thigh.name = side < 0 ? "legL" : "legR";
     thigh.position.set(x, 0.74, 0);
@@ -208,38 +208,51 @@ export function createPlayerAvatar(state) {
   chest.name = "chest";
   body.add(chest);
 
-  // Puff sleeves — 略小，露出手臂
-  const sleeveL = sphere(0.075, dress, { ...CLOTH_OPT, segments: 14 });
-  sleeveL.scale.set(1.1, 0.9, 1.0);
-  sleeveL.position.set(-0.26, 1.34, 0);
-  sleeveL.name = "sleeveL";
-  const sleeveR = sleeveL.clone();
-  sleeveR.position.x = 0.26;
-  sleeveR.name = "sleeveR";
-  body.add(sleeveL, sleeveR);
-
-  /** 肩关节 Group(arm*)，手挂在臂末端，走路可摆臂 */
+  /**
+   * 手臂：袖子挂在肩关节上与胳膊一体，上臂再套一截衣袖，避免「裸胳膊/掉袖子」
+   */
   const makeArm = (side) => {
     const arm = new THREE.Group();
     arm.name = side < 0 ? "armL" : "armR";
-    arm.position.set(side * 0.28, 1.34, 0);
+    arm.position.set(side * 0.22, 1.36, 0.02);
 
-    const upper = capsule(0.045, 0.24, skin, skinOpt);
-    upper.position.set(0, -0.14, 0);
+    const sleeve = sphere(0.07, dress, { ...CLOTH_OPT, segments: 16 });
+    sleeve.scale.set(1.15, 0.95, 1.05);
+    sleeve.position.set(0, -0.02, 0);
+    sleeve.name = side < 0 ? "sleeveL" : "sleeveR";
+    arm.add(sleeve);
+
+    // 上臂衣袖（衣服颜色）
+    const sleeveTube = capsule(0.05, 0.2, dress, CLOTH_OPT);
+    sleeveTube.position.set(0, -0.16, 0);
+    sleeveTube.name = side < 0 ? "sleeveTubeL" : "sleeveTubeR";
+    arm.add(sleeveTube);
+
+    const upper = capsule(0.038, 0.12, skin, skinOpt);
+    upper.position.set(0, -0.32, 0);
+    upper.name = side < 0 ? "upperArmL" : "upperArmR";
     arm.add(upper);
 
-    const lower = capsule(0.04, 0.22, skin, skinOpt);
-    lower.position.set(0, -0.38, 0);
+    const lower = capsule(0.036, 0.18, skin, skinOpt);
+    lower.position.set(0, -0.48, 0);
+    lower.name = side < 0 ? "lowerArmL" : "lowerArmR";
     arm.add(lower);
 
-    const hand = sphere(0.045, skin, { ...skinOpt, segments: 10 });
-    hand.position.set(0, -0.52, 0.02);
+    const hand = sphere(0.042, skin, { ...skinOpt, segments: 10 });
+    hand.position.set(0, -0.6, 0.02);
     hand.name = side < 0 ? "handL" : "handR";
     arm.add(hand);
 
+    arm.rotation.z = side * 0.08;
     return arm;
   };
-  body.add(makeArm(-1), makeArm(1));
+  const armL = makeArm(-1);
+  const armR = makeArm(1);
+  body.add(armL, armR);
+  const sleeveL = armL.getObjectByName("sleeveL");
+  const sleeveR = armR.getObjectByName("sleeveR");
+  const sleeveTubeL = armL.getObjectByName("sleeveTubeL");
+  const sleeveTubeR = armR.getObjectByName("sleeveTubeR");
 
   // Neck — 加长并与头部重叠，消除断裂感
   const neck = capsule(0.055, 0.14, skin, skinOpt);
@@ -405,7 +418,7 @@ export function createPlayerAvatar(state) {
 
   // 手表 — 左臂腕部
   const watch = softBox(0.05, 0.035, 0.04, 0xff6b8a, CLOTH_OPT);
-  watch.position.set(0, -0.48, 0.04);
+  watch.position.set(0, -0.55, 0.04);
   watch.name = "watch";
   watch.visible = false;
   const armLRef = body.getObjectByName("armL");
@@ -413,7 +426,7 @@ export function createPlayerAvatar(state) {
 
   // 手链 — 右臂腕部
   const bracelet = cyl(0.035, 0.035, 0.02, accent, { metalness: 0.4, roughness: 0.3, segments: 12 });
-  bracelet.position.set(0, -0.48, 0.02);
+  bracelet.position.set(0, -0.55, 0.02);
   bracelet.name = "bracelet";
   bracelet.visible = false;
   const armRRef = body.getObjectByName("armR");
@@ -421,7 +434,7 @@ export function createPlayerAvatar(state) {
 
   const hold = new THREE.Group();
   hold.name = "hold";
-  hold.position.set(0.08, -0.5, 0.1);
+  hold.position.set(0.02, -0.58, 0.08);
   if (armRRef) armRRef.add(hold);
   else {
     hold.position.set(0.28, 0.82, 0.1);
@@ -451,7 +464,7 @@ export function createPlayerAvatar(state) {
     cartMount,
     face3d,
     hairMeshes: [hairCap, bang, bangL, bangR, twinL, twinR, twinTipL, twinTipR],
-    sleeveMeshes: [sleeveL, sleeveR, chest, top],
+    sleeveMeshes: [sleeveL, sleeveR, sleeveTubeL, sleeveTubeR, chest, top],
     shoeMeshes: [body.getObjectByName("shoeL"), body.getObjectByName("shoeR")],
     pushingCart: false,
     sitting: false,
@@ -572,23 +585,20 @@ function syncDressHold(avatar, opt) {
   if (!hold) return;
   while (hold.children.length) hold.remove(hold.children[0]);
 
+  const onArm = hold.parent?.name === "armL" || hold.parent?.name === "armR";
   const hasBaby = opt.babyKind && opt.babyKind !== "none";
   if (hasBaby) {
-    hold.position.set(0.02, 0.88, 0.2);
+    hold.position.set(onArm ? 0.02 : 0.08, onArm ? -0.5 : 0.88, onArm ? 0.12 : 0.2);
     hold.add(createBabyHoldMesh(opt));
     return;
   }
 
   const prop = opt.prop;
   if (!prop || prop === "none") {
-    hold.position.set(0.28, 0.82, 0.1);
+    hold.position.set(onArm ? 0.02 : 0.28, onArm ? -0.58 : 0.82, onArm ? 0.08 : 0.1);
     return;
   }
-  if (opt.propSlot === "arm") {
-    hold.position.set(-0.26, 0.88, 0.12);
-  } else {
-    hold.position.set(0.28, 0.82, 0.1);
-  }
+  hold.position.set(onArm ? 0.02 : 0.28, onArm ? -0.58 : 0.82, onArm ? 0.08 : 0.1);
   hold.add(createDressPropMesh(prop, opt.propColor));
 }
 
@@ -696,7 +706,7 @@ export function createNPC(kind) {
   const male = !!preset.male;
 
   const makeNpcLeg = (side) => {
-    const x = side * 0.06;
+    const x = side * 0.045;
     const thigh = new THREE.Group();
     thigh.name = side < 0 ? "legL" : "legR";
     thigh.position.set(x, 0.78, 0);
@@ -793,25 +803,35 @@ export function createNPC(kind) {
   });
   headG.add(face3d);
 
-  const armL = new THREE.Group();
-  armL.name = "armL";
-  armL.position.set(-0.26, 1.32, 0);
-  const armLMesh = capsule(0.042, 0.42, skin, skinOpt);
-  armLMesh.position.set(0, -0.22, 0);
-  const handL = sphere(0.04, skin, { ...skinOpt, segments: 8 });
-  handL.position.set(0, -0.46, 0);
-  handL.name = "handL";
-  armL.add(armLMesh, handL);
+  /** NPC 手臂：肩袖 + 衣袖管与胳膊一体 */
+  const makeNpcArm = (side) => {
+    const arm = new THREE.Group();
+    arm.name = side < 0 ? "armL" : "armR";
+    arm.position.set(side * 0.22, 1.34, 0.02);
 
-  const armR = new THREE.Group();
-  armR.name = "armR";
-  armR.position.set(0.26, 1.32, 0);
-  const armRMesh = capsule(0.042, 0.42, skin, skinOpt);
-  armRMesh.position.set(0, -0.22, 0);
-  const handR = sphere(0.04, skin, { ...skinOpt, segments: 8 });
-  handR.position.set(0, -0.46, 0);
-  handR.name = "handR";
-  armR.add(armRMesh, handR);
+    const shoulder = sphere(male ? 0.055 : 0.062, shirt, { roughness: 0.5, segments: 12 });
+    shoulder.scale.set(1.1, 0.9, 1.0);
+    shoulder.position.set(0, -0.02, 0);
+    shoulder.name = side < 0 ? "npcShoulderL" : "npcShoulderR";
+    arm.add(shoulder);
+
+    const sleeveTube = capsule(0.048, 0.22, shirt, { roughness: 0.5 });
+    sleeveTube.position.set(0, -0.18, 0);
+    arm.add(sleeveTube);
+
+    const forearm = capsule(0.038, 0.18, skin, skinOpt);
+    forearm.position.set(0, -0.4, 0);
+    arm.add(forearm);
+
+    const hand = sphere(0.038, skin, { ...skinOpt, segments: 8 });
+    hand.position.set(0, -0.52, 0);
+    hand.name = side < 0 ? "handL" : "handR";
+    arm.add(hand);
+    arm.rotation.z = side * 0.06;
+    return arm;
+  };
+  const armL = makeNpcArm(-1);
+  const armR = makeNpcArm(1);
 
   root.add(legL, legR, torso, neck, headG, armL, armR);
 
@@ -881,14 +901,16 @@ export function setSitPose(npc, sitting = true, opts = {}) {
     if (neckMesh) neckMesh.position.y = 0.68;
     if (headG) headG.position.y = 0.8;
     if (armL) {
-      armL.position.set(-0.24, 0.32, 0.12);
-      armL.rotation.x = -0.55;
-      armL.rotation.z = 0.08;
+      armL.position.set(-0.22, 0.56, 0.08);
+      armL.rotation.x = -0.45;
+      armL.rotation.z = 0.06;
+      armL.rotation.y = 0;
     }
     if (armR) {
-      armR.position.set(0.24, 0.32, 0.12);
-      armR.rotation.x = -0.55;
-      armR.rotation.z = -0.08;
+      armR.position.set(0.22, 0.56, 0.08);
+      armR.rotation.x = -0.45;
+      armR.rotation.z = -0.06;
+      armR.rotation.y = 0;
     }
     if (jeans) jeans.position.y = 0.12;
     if (skirt) skirt.position.y = 0.08;
@@ -896,11 +918,11 @@ export function setSitPose(npc, sitting = true, opts = {}) {
     npc.position.y = 0;
     if (legL) {
       legL.rotation.x = 0;
-      legL.position.set(-0.07, 0.78, 0);
+      legL.position.set(-0.045, 0.78, 0);
     }
     if (legR) {
       legR.rotation.x = 0;
-      legR.position.set(0.07, 0.78, 0);
+      legR.position.set(0.045, 0.78, 0);
     }
     if (calfL) {
       calfL.rotation.x = 0;
@@ -914,14 +936,12 @@ export function setSitPose(npc, sitting = true, opts = {}) {
     if (neckMesh) neckMesh.position.y = 1.46;
     if (headG) headG.position.y = 1.58;
     if (armL) {
-      armL.position.set(-0.26, 1.32, 0);
-      armL.rotation.x = 0;
-      armL.rotation.z = 0;
+      armL.position.set(-0.22, 1.34, 0.02);
+      armL.rotation.set(0, 0, -0.06);
     }
     if (armR) {
-      armR.position.set(0.26, 1.32, 0);
-      armR.rotation.x = 0;
-      armR.rotation.z = 0;
+      armR.position.set(0.22, 1.34, 0.02);
+      armR.rotation.set(0, 0, 0.06);
     }
     if (jeans) jeans.position.y = 0.62;
     if (skirt) skirt.position.y = 0.58;
@@ -975,17 +995,16 @@ export function setPlayerSit(avatar, sitting = true, opts = {}) {
     if (bottom) bottom.position.y = 0.08;
     if (top) top.position.y = 0.42;
     if (chest) chest.position.y = 0.48;
-    if (sleeveL) sleeveL.position.set(-0.26, 0.46, 0);
-    if (sleeveR) sleeveR.position.set(0.26, 0.46, 0);
+    // 袖子已挂在手臂上，只调肩关节
     if (neck) neck.position.y = 0.66;
     if (headG) headG.position.y = 0.78;
     if (armL) {
-      armL.rotation.x = -0.5;
-      armL.position.set(-0.26, 0.4, 0.1);
+      armL.rotation.set(-0.45, 0, -0.06);
+      armL.position.set(-0.2, 0.56, 0.08);
     }
     if (armR) {
-      armR.rotation.x = -0.5;
-      armR.position.set(0.26, 0.4, 0.1);
+      armR.rotation.set(-0.45, 0, 0.06);
+      armR.position.set(0.2, 0.56, 0.08);
     }
   } else {
     avatar.position.y = 0;
@@ -996,20 +1015,20 @@ export function setPlayerSit(avatar, sitting = true, opts = {}) {
     if (bottom) bottom.position.y = 0.55;
     if (top) top.position.y = 1.3;
     if (chest) chest.position.y = 1.34;
-    if (sleeveL) sleeveL.position.set(-0.26, 1.34, 0);
-    if (sleeveR) sleeveR.position.set(0.26, 1.34, 0);
     if (neck) neck.position.y = 1.5;
     if (headG) headG.position.y = 1.58;
     if (armL) {
-      armL.rotation.x = 0;
-      armL.position.set(-0.28, 1.34, 0);
+      armL.rotation.set(0, 0, -0.08);
+      armL.position.set(-0.22, 1.36, 0.02);
     }
     if (armR) {
-      armR.rotation.x = 0;
-      armR.position.set(0.28, 1.34, 0);
+      armR.rotation.set(0, 0, 0.08);
+      armR.position.set(0.22, 1.36, 0.02);
     }
   }
   void body;
+  void sleeveL;
+  void sleeveR;
 }
 
 /** 站立静止：双腿并拢复位 */
@@ -1024,13 +1043,14 @@ export function resetIdleStance(avatar) {
   const armR = avatar.getObjectByName("armR");
   const hipY = isPlayer ? 0.74 : 0.78;
   const calfY = isPlayer ? -0.36 : -0.38;
+  const hipX = isPlayer ? 0.038 : 0.045;
   if (legL) {
     legL.rotation.set(0, 0, 0);
-    legL.position.set(-0.06, hipY, 0);
+    legL.position.set(-hipX, hipY, 0);
   }
   if (legR) {
     legR.rotation.set(0, 0, 0);
-    legR.position.set(0.06, hipY, 0);
+    legR.position.set(hipX, hipY, 0);
   }
   if (calfL) {
     calfL.rotation.set(0, 0, 0);
@@ -1041,8 +1061,14 @@ export function resetIdleStance(avatar) {
     calfR.position.set(0, calfY, 0);
   }
   if (!avatar.userData.pushingCart) {
-    if (armL) armL.rotation.x = 0;
-    if (armR) armR.rotation.x = 0;
+    if (armL) {
+      armL.rotation.x = 0;
+      armL.rotation.z = isPlayer ? -0.08 : -0.06;
+    }
+    if (armR) {
+      armR.rotation.x = 0;
+      armR.rotation.z = isPlayer ? 0.08 : 0.06;
+    }
   }
 }
 
@@ -1103,12 +1129,12 @@ export function setPushCart(avatar, enabled) {
 
   if (!enabled) {
     if (armL) {
-      armL.position.set(-0.28, 1.34, 0);
-      armL.rotation.set(0, 0, 0);
+      armL.position.set(-0.22, 1.36, 0.02);
+      armL.rotation.set(0, 0, -0.08);
     }
     if (armR) {
-      armR.position.set(0.28, 1.34, 0);
-      armR.rotation.set(0, 0, 0);
+      armR.position.set(0.22, 1.36, 0.02);
+      armR.rotation.set(0, 0, 0.08);
     }
     return;
   }

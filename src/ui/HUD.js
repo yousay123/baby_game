@@ -24,7 +24,6 @@ import { emit } from "../gameplay/GameState.js";
 import { applyMakeup } from "../characters/Avatar.js";
 import { makeup2d } from "./Makeup2D.js";
 import { VirtualStick } from "./VirtualStick.js";
-import { bgm } from "../audio/Bgm.js";
 
 export class HUD {
   constructor(game) {
@@ -32,20 +31,17 @@ export class HUD {
     this.toastTimer = null;
     this.makeupMode = "makeup";
     this.makeupTab = "lipstick";
-    this.bgm = bgm;
 
     document.getElementById("sceneNav").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-scene]");
       if (!btn) return;
       game.go(btn.dataset.scene);
-      bgm.unlock();
     });
 
     document.getElementById("btnFinishMakeup")?.addEventListener("click", () => {
       game.toast("美美出发！去超市买菜吧～");
       makeup2d.hide();
       game.go("market");
-      bgm.unlock();
     });
 
     const stickEl = document.getElementById("virtualStick");
@@ -55,27 +51,6 @@ export class HUD {
         })
       : null;
     this.stickVisible = false;
-
-    const bgmBtn = document.getElementById("bgmToggle");
-    const syncBgmBtn = () => {
-      if (!bgmBtn) return;
-      bgmBtn.classList.toggle("is-muted", bgm.isMuted());
-      bgmBtn.setAttribute("aria-pressed", bgm.isMuted() ? "false" : "true");
-      bgmBtn.title = bgm.isMuted() ? "打开背景音乐" : "关闭背景音乐";
-    };
-    syncBgmBtn();
-    bgmBtn?.addEventListener("click", async () => {
-      const on = await bgm.toggleMute();
-      syncBgmBtn();
-      game.toast(on ? "背景音乐已打开～" : "背景音乐已关闭");
-    });
-
-    // 任意首次点击解锁音频（浏览器策略）
-    const unlockOnce = () => {
-      bgm.unlock();
-      window.removeEventListener("pointerdown", unlockOnce);
-    };
-    window.addEventListener("pointerdown", unlockOnce, { passive: true });
 
     this.bindMakeupUI();
     this.unsubscribe = null;
