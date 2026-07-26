@@ -48,12 +48,32 @@ export const MARKET_GOODS = {
     { id: "noodle", name: "挂面", icon: "面", price: 7, tag: "noodle", color: "#f0e0c0" },
     { id: "chicken", name: "鸡肉", icon: "鸡", price: 14, tag: "meat", color: "#f0c0a8" },
     { id: "pork", name: "猪肉", icon: "肉", price: 16, tag: "meat", color: "#e89898" },
+    { id: "beef", name: "牛肉", icon: "牛", price: 20, tag: "meat", color: "#c07060" },
     { id: "shrimp", name: "虾仁", icon: "虾", price: 18, tag: "seafood", color: "#ffb0b8" },
     { id: "cheese", name: "芝士", icon: "酪", price: 12, tag: "dairy", color: "#ffe08a" },
   ],
   snack: [
     { id: "chips", name: "薯片", icon: "薯", price: 8, tag: "snack", color: "#ffe08a" },
     { id: "bread", name: "面包胚", icon: "包", price: 6, tag: "flour", color: "#e8c898" },
+  ],
+  toys: [
+    { id: "blocks", name: "积木", icon: "积", price: 18, tag: "toy", color: "#ff6b8a" },
+    { id: "doll", name: "布娃娃", icon: "娃", price: 22, tag: "toy", color: "#ffb0c8" },
+    { id: "toyCar", name: "小汽车", icon: "车", price: 16, tag: "toy", color: "#7ec8ff" },
+    { id: "ball", name: "皮球", icon: "球", price: 12, tag: "toy", color: "#ffe08a" },
+  ],
+  household: [
+    { id: "tissue", name: "纸巾", icon: "纸", price: 8, tag: "house", color: "#fff8f0" },
+    { id: "soap", name: "香皂", icon: "皂", price: 6, tag: "house", color: "#ffb0c8" },
+    { id: "shampoo", name: "洗发水", icon: "发", price: 15, tag: "house", color: "#c9a0e0" },
+    { id: "toothbrush", name: "牙刷", icon: "刷", price: 5, tag: "house", color: "#7ec8ff" },
+    { id: "towel", name: "毛巾", icon: "巾", price: 10, tag: "house", color: "#6ecf7a" },
+  ],
+  fruit: [
+    { id: "apple", name: "苹果", icon: "果", price: 5, tag: "fruit", color: "#ef6b6a" },
+    { id: "banana", name: "香蕉", icon: "蕉", price: 4, tag: "fruit", color: "#ffe066" },
+    { id: "orange", name: "橙子", icon: "橙", price: 5, tag: "fruit", color: "#ff9f40" },
+    { id: "grape", name: "葡萄", icon: "葡", price: 8, tag: "fruit", color: "#9b6ecf" },
   ],
 };
 
@@ -67,6 +87,172 @@ export const ALL_GOODS = Object.values(MARKET_GOODS).flat();
  */
 /** 预览色块快捷生成 */
 const blob = (color, x, y, w, h, r = 40) => ({ color, x, y, w, h, r });
+
+const FOOD_TINT = {
+  chicken: "#f0c0a8",
+  pork: "#e89898",
+  beef: "#c07060",
+  shrimp: "#ffb0b8",
+  egg: "#ffe08a",
+  cheese: "#ffe08a",
+  oil: "#f0d060",
+  noodle: "#f0e0c0",
+  tomato: "#ff6b4a",
+  pepper: "#3aaa40",
+  potato: "#d4b896",
+  carrot: "#ff8f40",
+  onion: "#e8c8a0",
+  cabbage: "#d8f0c8",
+  broccoli: "#4aaa50",
+  eggplant: "#7a4a9a",
+  cucumber: "#6ecf7a",
+  spinach: "#2e8a40",
+  mushroom: "#c8b090",
+  corn: "#ffe066",
+  tofu: "#f5f0e8",
+};
+
+/** 灶台菜快捷生成（肉菜 / 面食批量用） */
+function mkCook(id, name, icon, ingredientIds, opts = {}) {
+  const wash = new Set(["tomato", "pepper", "potato", "carrot", "onion", "cabbage", "broccoli", "eggplant", "cucumber", "spinach", "mushroom", "corn"]);
+  const names = {
+    chicken: "鸡肉",
+    pork: "猪肉",
+    beef: "牛肉",
+    shrimp: "虾仁",
+    egg: "鸡蛋",
+    cheese: "芝士",
+    oil: "食用油",
+    noodle: "挂面",
+    tomato: "番茄",
+    pepper: "青椒",
+    potato: "土豆",
+    carrot: "胡萝卜",
+    onion: "洋葱",
+    cabbage: "白菜",
+    broccoli: "西兰花",
+    eggplant: "茄子",
+    cucumber: "黄瓜",
+    spinach: "菠菜",
+    mushroom: "口蘑",
+    corn: "玉米",
+    tofu: "豆腐",
+  };
+  const ids = ingredientIds.includes("oil") || opts.noOil ? ingredientIds : [...ingredientIds, "oil"];
+  const foods = ids
+    .filter((x) => x !== "oil")
+    .slice(0, 3)
+    .map((fid, i) => blob(FOOD_TINT[fid] || "#e8d0a0", 26 + i * 16, 34 + (i % 2) * 6, 34 - i * 2, 26 - i, i === 0 ? 40 : 45));
+  return {
+    id,
+    name,
+    dish: name,
+    icon,
+    station: opts.station || "stove",
+    power: opts.power || "stove",
+    needHood: opts.needHood !== false,
+    time: opts.time || 3000,
+    vesselDefault: opts.vessel || "plate",
+    desc: opts.desc || "家常好味道",
+    ingredients: ids.map((fid) => ({
+      id: fid,
+      name: names[fid] || fid,
+      ...(wash.has(fid) ? { needWash: true } : {}),
+    })),
+    preview: {
+      plate: opts.vessel === "bowl" ? "#f0e8e0" : "#faf6f0",
+      ...(opts.vessel === "bowl" ? { bowl: true } : {}),
+      foods,
+    },
+  };
+}
+
+/** 五十道新增肉菜（鸡/猪/牛/虾） */
+const EXTRA_MEAT_DISHES = [
+  mkCook("porkPepper", "青椒炒肉", "🫑", ["pork", "pepper"], { desc: "下饭经典" }),
+  mkCook("porkTomato", "番茄炒肉", "🍅", ["pork", "tomato"], { desc: "酸甜开胃" }),
+  mkCook("porkPotato", "土豆烧肉", "🥔", ["pork", "potato"], { vessel: "bowl", time: 3400, desc: "软糯入味" }),
+  mkCook("porkCarrot", "胡萝卜炖肉", "🥕", ["pork", "carrot"], { vessel: "bowl", time: 3400, desc: "暖胃家常" }),
+  mkCook("porkOnion", "洋葱炒肉丝", "🧅", ["pork", "onion"], { desc: "甜香扑鼻" }),
+  mkCook("porkBroccoli", "西兰花炒肉", "🥦", ["pork", "broccoli"], { desc: "荤素搭配" }),
+  mkCook("porkCabbageStir", "白菜炒肉丝", "🥬", ["pork", "cabbage"], { desc: "清爽不腻" }),
+  mkCook("porkEggplant", "茄子烧肉", "🍆", ["pork", "eggplant"], { vessel: "bowl", time: 3200, desc: "软烂入味" }),
+  mkCook("porkCucumber", "黄瓜炒肉", "🥒", ["pork", "cucumber"], { desc: "脆嫩爽口" }),
+  mkCook("porkSpinach", "菠菜炒肉", "🥬", ["pork", "spinach"], { desc: "补铁下饭" }),
+  mkCook("porkMushroom", "口蘑炒肉", "🍄", ["pork", "mushroom"], { desc: "菌香浓郁" }),
+  mkCook("porkCorn", "玉米炒肉", "🌽", ["pork", "corn"], { desc: "甜香一口" }),
+  mkCook("porkPepperOnion", "回锅肉", "🥓", ["pork", "pepper", "onion"], { time: 3200, desc: "肥而不腻" }),
+  mkCook("porkFishFlavor", "鱼香肉丝", "🥢", ["pork", "carrot", "pepper"], { time: 3200, desc: "酸甜微辣" }),
+  mkCook("porkMooShu", "木须肉", "🥚", ["pork", "egg", "mushroom"], { desc: "软滑鲜香" }),
+  mkCook("porkSweetSour", "糖醋里脊", "🍬", ["pork", "tomato"], { time: 3200, desc: "酸甜酥香" }),
+  mkCook("porkBraised", "红烧肉", "🍖", ["pork", "onion"], { vessel: "bowl", time: 3600, desc: "色泽红亮" }),
+  mkCook("porkEggPatty", "猪肉煎蛋", "🍳", ["pork", "egg"], { desc: "香煎金黄" }),
+  mkCook("porkCheese", "芝士烤肉", "🧀", ["pork", "cheese"], { station: "oven", power: "oven", needHood: false, desc: "拉丝浓香" }),
+  mkCook("porkTofu", "肉末豆腐", "🧈", ["pork", "tofu"], { vessel: "bowl", desc: "嫩滑入味" }),
+  mkCook("beefPepper", "青椒牛肉丝", "🫑", ["beef", "pepper"], { desc: "嫩滑劲道" }),
+  mkCook("beefTomato", "番茄牛腩", "🍅", ["beef", "tomato"], { vessel: "bowl", time: 3600, desc: "汤浓肉烂" }),
+  mkCook("beefPotato", "土豆烧牛肉", "🥔", ["beef", "potato"], { vessel: "bowl", time: 3600, desc: "硬菜一锅" }),
+  mkCook("beefCarrot", "胡萝卜炖牛腩", "🥕", ["beef", "carrot"], { vessel: "bowl", time: 3600, desc: "暖乎乎" }),
+  mkCook("beefOnion", "洋葱炒牛肉", "🧅", ["beef", "onion"], { desc: "快手香嫩" }),
+  mkCook("beefBroccoli", "西兰花炒牛肉", "🥦", ["beef", "broccoli"], { desc: "营养均衡" }),
+  mkCook("beefMushroom", "口蘑炒牛肉", "🍄", ["beef", "mushroom"], { desc: "西式家常" }),
+  mkCook("beefCabbage", "白菜炖牛肉", "🥬", ["beef", "cabbage"], { vessel: "bowl", time: 3400, desc: "软烂入味" }),
+  mkCook("beefEggplant", "茄子牛肉", "🍆", ["beef", "eggplant"], { vessel: "bowl", time: 3300, desc: "酱香浓郁" }),
+  mkCook("beefSpinach", "菠菜牛肉", "🥬", ["beef", "spinach"], { desc: "清香不腻" }),
+  mkCook("beefCorn", "玉米炒牛肉", "🌽", ["beef", "corn"], { desc: "甜香开胃" }),
+  mkCook("beefCucumber", "黄瓜炒牛肉", "🥒", ["beef", "cucumber"], { desc: "清脆爽口" }),
+  mkCook("beefPepperOnion", "小炒黄牛肉", "🥩", ["beef", "pepper", "onion"], { time: 3200, desc: "火候刚好" }),
+  mkCook("beefEgg", "滑蛋牛肉", "🥚", ["beef", "egg"], { desc: "嫩滑下饭" }),
+  mkCook("beefCheese", "芝士烤牛肉", "🧀", ["beef", "cheese"], { station: "oven", power: "oven", needHood: false, desc: "聚会硬菜" }),
+  mkCook("chickenPepper", "辣子鸡", "🌶️", ["chicken", "pepper"], { time: 3200, desc: "干香过瘾" }),
+  mkCook("chickenTomato", "番茄炒鸡", "🍅", ["chicken", "tomato"], { desc: "酸甜鲜嫩" }),
+  mkCook("chickenPotato", "土豆炖鸡", "🥔", ["chicken", "potato"], { vessel: "bowl", time: 3400, desc: "一锅暖心" }),
+  mkCook("chickenCarrot", "胡萝卜炒鸡", "🥕", ["chicken", "carrot"], { desc: "家常快手" }),
+  mkCook("chickenOnion", "洋葱炒鸡", "🧅", ["chicken", "onion"], { desc: "甜香扑鼻" }),
+  mkCook("chickenCabbage", "白菜炒鸡", "🥬", ["chicken", "cabbage"], { desc: "清淡鲜美" }),
+  mkCook("chickenCorn", "玉米炒鸡", "🌽", ["chicken", "corn"], { desc: "金黄香甜" }),
+  mkCook("chickenEggplant", "茄子烧鸡", "🍆", ["chicken", "eggplant"], { vessel: "bowl", time: 3200, desc: "软糯入味" }),
+  mkCook("chickenSpinach", "菠菜炒鸡", "🥬", ["chicken", "spinach"], { desc: "绿意满盘" }),
+  mkCook("chickenCucumber", "黄瓜炒鸡", "🥒", ["chicken", "cucumber"], { desc: "清爽不腻" }),
+  mkCook("chickenBroccoliStir", "西兰花炒鸡", "🥦", ["chicken", "broccoli"], { desc: "健康下饭" }),
+  mkCook("chickenKungPao", "宫保鸡丁", "🥜", ["chicken", "pepper", "cucumber"], { time: 3200, desc: "微辣鲜香" }),
+  mkCook("chickenEgg", "滑蛋鸡片", "🥚", ["chicken", "egg"], { desc: "嫩滑可口" }),
+  mkCook("chickenCheese", "芝士烤鸡", "🧀", ["chicken", "cheese"], { station: "oven", power: "oven", needHood: false, desc: "外焦里嫩" }),
+  mkCook("chickenTofu", "鸡丁豆腐", "🧈", ["chicken", "tofu"], { vessel: "bowl", desc: "鲜嫩一碗" }),
+  mkCook("shrimpBroccoli", "虾仁西兰花", "🥦", ["shrimp", "broccoli"], { desc: "清鲜营养" }),
+  mkCook("shrimpCucumber", "黄瓜炒虾仁", "🥒", ["shrimp", "cucumber"], { desc: "脆嫩爽口" }),
+  mkCook("shrimpTomato", "番茄炒虾", "🍅", ["shrimp", "tomato"], { desc: "酸甜鲜美" }),
+  mkCook("shrimpPepper", "青椒虾仁", "🫑", ["shrimp", "pepper"], { desc: "快手下饭" }),
+  mkCook("shrimpMushroom", "口蘑虾仁", "🍄", ["shrimp", "mushroom"], { desc: "菌香衬虾" }),
+  mkCook("shrimpSpinach", "菠菜虾仁", "🥬", ["shrimp", "spinach"], { desc: "清香不腻" }),
+  mkCook("shrimpCorn", "玉米虾仁", "🌽", ["shrimp", "corn"], { desc: "甜鲜一口" }),
+  mkCook("shrimpOnion", "洋葱炒虾", "🧅", ["shrimp", "onion"], { desc: "香气十足" }),
+  mkCook("shrimpEggplant", "茄子虾仁", "🍆", ["shrimp", "eggplant"], { desc: "软糯鲜香" }),
+  mkCook("shrimpCarrot", "胡萝卜炒虾", "🥕", ["shrimp", "carrot"], { desc: "色彩好看" }),
+  mkCook("shrimpCabbage", "白菜炒虾", "🥬", ["shrimp", "cabbage"], { desc: "清淡鲜甜" }),
+  mkCook("shrimpPotato", "土豆虾仁", "🥔", ["shrimp", "potato"], { desc: "软糯搭配" }),
+  mkCook("shrimpCheeseBake2", "黄油烤虾", "🧈", ["shrimp", "cheese", "onion"], {
+    station: "oven",
+    power: "oven",
+    needHood: false,
+    time: 3200,
+    desc: "香气四溢",
+  }),
+].slice(0, 50);
+
+/** 汤面 / 牛肉面 / 番茄面 / 蔬菜面等 */
+const EXTRA_NOODLE_DISHES = [
+  mkCook("soupNoodle", "汤面", "🍜", ["noodle"], { vessel: "bowl", time: 2600, desc: "清汤热乎乎", needHood: true }),
+  mkCook("beefNoodle", "牛肉面", "🍜", ["noodle", "beef", "onion"], { vessel: "bowl", time: 3400, desc: "汤浓肉香" }),
+  mkCook("tomatoSoupNoodle", "番茄面", "🍅", ["noodle", "tomato", "egg"], { vessel: "bowl", time: 3000, desc: "酸甜一碗面" }),
+  mkCook("vegNoodle", "蔬菜面", "🥬", ["noodle", "broccoli", "carrot"], { vessel: "bowl", time: 3000, desc: "清爽营养" }),
+  mkCook("chickenNoodle", "鸡肉面", "🍗", ["noodle", "chicken"], { vessel: "bowl", time: 3000, desc: "鲜香暖胃" }),
+  mkCook("porkNoodle", "肉丝面", "🥓", ["noodle", "pork"], { vessel: "bowl", time: 3000, desc: "经典早餐面" }),
+  mkCook("shrimpNoodle", "虾仁面", "🦐", ["noodle", "shrimp"], { vessel: "bowl", time: 3000, desc: "鲜掉眉毛" }),
+  mkCook("spinachNoodle", "菠菜面", "🥬", ["noodle", "spinach", "egg"], { vessel: "bowl", time: 2800, desc: "绿意满碗" }),
+  mkCook("mushroomNoodle", "口蘑面", "🍄", ["noodle", "mushroom"], { vessel: "bowl", time: 2800, desc: "菌香汤面" }),
+  mkCook("pepperNoodle", "青椒肉丝面", "🫑", ["noodle", "pork", "pepper"], { vessel: "bowl", time: 3000, desc: "干香过瘾" }),
+];
 
 export const DISH_RECIPES = [
   {
@@ -617,6 +803,8 @@ export const DISH_RECIPES = [
     ],
     preview: { plate: "#faf6f0", foods: [blob("#ffb0b8", 28, 36, 36, 26), blob("#ffe08a", 50, 40, 30, 22)] },
   },
+  ...EXTRA_MEAT_DISHES,
+  ...EXTRA_NOODLE_DISHES,
 ];
 
 /** @deprecated 兼容旧 startCook(type) —— 映射到菜站默认菜 */

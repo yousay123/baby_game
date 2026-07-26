@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { box, makeInteractable, makeLabelSprite } from "../core/builders.js";
+import { box, makeInteractable, makeLabelSprite, wallTexture } from "../core/builders.js";
 import { COLORS, APPLIANCE_NAMES } from "../core/constants.js";
 import { BaseScene } from "./WorldScenes.js";
 import { washPrep } from "../ui/HUD.js";
@@ -65,7 +65,10 @@ export class KitchenScene extends BaseScene {
       ],
     });
 
-    const splash = box(9.2, 0.75, 0.08, 0xe8f4ff);
+    const splash = box(9.2, 0.75, 0.08, 0xe8f4ff, {
+      map: wallTexture(0xe8f4ff, "kitchen"),
+      roughness: 0.55,
+    });
     splash.position.set(0, 1.45, -3.35);
     this.threeScene.add(splash);
 

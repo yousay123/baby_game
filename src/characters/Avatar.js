@@ -7,10 +7,12 @@ const SKIN_OPT = { roughness: 0.92, metalness: 0, emissiveIntensity: 0.08 };
 const CLOTH_OPT = { roughness: 0.78, metalness: 0 };
 
 const NPC_LABELS = {
-  dad: { text: "爸爸", bg: "rgba(70,110,180,0.92)" },
-  mom: { text: "妈妈", bg: "rgba(239,107,138,0.92)" },
-  cashier: { text: "收银员", bg: "rgba(239,107,138,0.92)" },
-  dog: { text: "旺旺", bg: "rgba(200,120,60,0.9)" },
+  dad: { text: "爸爸", bg: "rgba(70,110,180,0.92)", scaleX: 0.52, scaleY: 0.15, fontSize: 40 },
+  mom: { text: "妈妈", bg: "rgba(239,107,138,0.92)", scaleX: 0.52, scaleY: 0.15, fontSize: 40 },
+  cashier: { text: "收银员", bg: "rgba(239,107,138,0.92)", scaleX: 0.48, scaleY: 0.13, fontSize: 34 },
+  dog: { text: "旺旺", bg: "rgba(200,120,60,0.9)", scaleX: 0.36, scaleY: 0.1, fontSize: 28 },
+  kidGirl: { text: "小美", bg: "rgba(255,140,180,0.92)", scaleX: 0.42, scaleY: 0.12, fontSize: 34 },
+  kidBoy: { text: "小明", bg: "rgba(100,170,230,0.92)", scaleX: 0.42, scaleY: 0.12, fontSize: 34 },
 };
 
 function hex3(hex) {
@@ -795,6 +797,20 @@ export function createNPC(kind) {
     pony.rotation.x = 0.4;
     headG.add(pony);
   }
+  if (kind === "kidGirl") {
+    [-1, 1].forEach((side) => {
+      const bun = sphere(0.055, hairC, { roughness: 0.68, segments: 10 });
+      bun.position.set(side * 0.1, 0.12, -0.02);
+      headG.add(bun);
+    });
+  }
+  if (kind === "kidBoy") {
+    const cap = softBox(0.2, 0.05, 0.18, hex3(preset.accent || "#4A90C8"), { roughness: 0.55 });
+    cap.position.set(0, 0.14, 0.02);
+    const brim = softBox(0.16, 0.02, 0.08, hex3(preset.accent || "#4A90C8"));
+    brim.position.set(0, 0.12, 0.12);
+    headG.add(cap, brim);
+  }
 
   const face3d = createFace3D({
     lip: preset.lip,
@@ -839,23 +855,28 @@ export function createNPC(kind) {
   if (label) {
     const tag = makeLabelSprite(label.text, {
       bg: label.bg,
-      scaleX: 0.2,
-      scaleY: 0.06,
-      fontSize: 20,
+      scaleX: label.scaleX ?? 0.42,
+      scaleY: label.scaleY ?? 0.12,
+      fontSize: label.fontSize ?? 34,
     });
-    // 贴在头顶稍上方，避免漂太远
-    tag.position.set(0, 1.68, 0);
+    // 贴在头顶稍上方（坐下时由 setSitPose 再压低）
+    tag.position.set(0, kind.startsWith("kid") ? 1.65 : 1.78, 0);
     tag.name = "npcTag";
     root.add(tag);
+  }
+
+  if (kind === "kidGirl" || kind === "kidBoy") {
+    root.scale.setScalar(0.72);
   }
 
   root.userData = {
     target: null,
     walking: false,
-    speed: 2.6,
+    speed: kind.startsWith("kid") ? 1.8 : 2.6,
     kind,
     pose: "stand",
     face3d,
+    pauseT: 0,
   };
   return root;
 }
@@ -877,6 +898,7 @@ export function setSitPose(npc, sitting = true, opts = {}) {
 
   npc.userData.sitting = !!sitting;
   npc.userData.pose = sitting ? "sit" : "stand";
+  const npcTag = npc.getObjectByName("npcTag");
 
   if (sitting) {
     // 屁股落在椅面；大腿朝前水平，小腿自然下垂
@@ -900,6 +922,8 @@ export function setSitPose(npc, sitting = true, opts = {}) {
     if (torso) torso.position.y = 0.42;
     if (neckMesh) neckMesh.position.y = 0.68;
     if (headG) headG.position.y = 0.8;
+    // 名牌贴在坐下后的头顶，避免漂很高
+    if (npcTag) npcTag.position.y = 1.05;
     if (armL) {
       armL.position.set(-0.22, 0.56, 0.08);
       armL.rotation.x = -0.45;
@@ -916,6 +940,7 @@ export function setSitPose(npc, sitting = true, opts = {}) {
     if (skirt) skirt.position.y = 0.08;
   } else {
     npc.position.y = 0;
+    if (npcTag) npcTag.position.y = 1.78;
     if (legL) {
       legL.rotation.x = 0;
       legL.position.set(-0.045, 0.78, 0);
@@ -1043,7 +1068,8 @@ export function resetIdleStance(avatar) {
   const armR = avatar.getObjectByName("armR");
   const hipY = isPlayer ? 0.74 : 0.78;
   const calfY = isPlayer ? -0.36 : -0.38;
-  const hipX = isPlayer ? 0.038 : 0.045;
+  // NPC 静止时双腿更并拢，避免像卡住叉开
+  const hipX = isPlayer ? 0.038 : 0.028;
   if (legL) {
     legL.rotation.set(0, 0, 0);
     legL.position.set(-hipX, hipY, 0);

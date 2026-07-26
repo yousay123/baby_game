@@ -38,6 +38,7 @@ import {
   createPlant,
   createWindow,
   createMarketShelf,
+  createGoodsMesh,
   createShoppingCart,
   createCheckoutCounter,
   softBox,
@@ -323,38 +324,54 @@ export class BaseScene {
     for (const npc of this.npcs) {
       const ud = npc.userData;
       if (!ud.waypoints?.length) continue;
+
+      // 停在货架前：双腿并拢站定一会儿
+      if ((ud.pauseT || 0) > 0) {
+        ud.pauseT -= dt;
+        ud.target = null;
+        updateWalkAnim(npc, dt, false);
+        continue;
+      }
+
       if (!ud.target) {
         ud.wp = ((ud.wp || 0) + 1) % ud.waypoints.length;
         const w = ud.waypoints[ud.wp];
         ud.target = new THREE.Vector3(w.x, 0, w.z);
+        if (w.yaw != null) npc.rotation.y = w.yaw;
       }
       const dx = ud.target.x - npc.position.x;
       const dz = ud.target.z - npc.position.z;
       const dist = Math.hypot(dx, dz);
       let moving = false;
-      if (dist < 0.12) {
+      if (dist < 0.14) {
         ud.target = null;
-      } else {
-        const step = Math.min(dist, (ud.speed || 1.4) * dt);
-        const next = tryMove(
-          npc.position.x,
-          npc.position.z,
-          (dx / dist) * step,
-          (dz / dist) * step,
-          0.3,
-          this.colliders,
-          halfW,
-          halfD
-        );
-        if (next.x === npc.position.x && next.z === npc.position.z) {
-          ud.target = null; // pick new waypoint if stuck
-        } else {
-          npc.position.x = next.x;
-          npc.position.z = next.z;
-          npc.rotation.y = Math.atan2(dx, dz);
-          moving = true;
-        }
+        const w = ud.waypoints[ud.wp];
+        if (w?.yaw != null) npc.rotation.y = w.yaw;
+        ud.pauseT = w?.pause ?? 1.4 + Math.random() * 1.2;
+        updateWalkAnim(npc, dt, false);
+        continue;
       }
+      const step = Math.min(dist, (ud.speed || 1.4) * dt);
+      const next = tryMove(
+        npc.position.x,
+        npc.position.z,
+        (dx / dist) * step,
+        (dz / dist) * step,
+        0.3,
+        this.colliders,
+        halfW,
+        halfD
+      );
+      if (next.x === npc.position.x && next.z === npc.position.z) {
+        ud.target = null;
+        ud.pauseT = 0.9;
+        updateWalkAnim(npc, dt, false);
+        continue;
+      }
+      npc.position.x = next.x;
+      npc.position.z = next.z;
+      npc.rotation.y = Math.atan2(dx, dz);
+      moving = true;
       updateWalkAnim(npc, dt, moving);
     }
   }
@@ -452,33 +469,48 @@ export class MarketScene extends BaseScene {
       tag.position.y = 1.68;
       tag.scale.set(0.38, 0.1, 1);
     }
-    const labels = { veg: "蔬菜", drinks: "饮料", daily: "粮油", snack: "零食" };
-    const cats = Object.keys(MARKET_GOODS);
+    const labels = {
+      veg: "蔬菜",
+      drinks: "饮料",
+      daily: "粮油",
+      snack: "零食",
+      toys: "玩具",
+      household: "日用品",
+      fruit: "水果",
+    };
 
-    // Back wall cold cases — even 3.6m grid
-    cats.forEach((cat, i) => {
-      const wallShelf = createMarketShelf(cat, i === 0 ? "冷柜区" : labels[cat], {
-        doubleSided: false,
-      });
-      wallShelf.position.set(-5.4 + i * 3.6, 0, -6.2);
+    // 后墙：冷柜 / 玩具 / 蔬菜（单面靠墙，加宽间距）
+    [
+      { cat: "drinks", label: "冷柜区", x: -5.5 },
+      { cat: "toys", label: labels.toys, x: 0 },
+      { cat: "veg", label: labels.veg, x: 5.5 },
+    ].forEach(({ cat, label, x }) => {
+      const wallShelf = createMarketShelf(cat, label, { doubleSided: false });
+      wallShelf.position.set(x, 0, -6.5);
       this.threeScene.add(wallShelf);
-      this.addColliderFor(wallShelf, 1.15, 0.45);
+      this.addColliderFor(wallShelf, 1.0, 0.36);
     });
 
-    // Center island row
-    cats.forEach((cat, i) => {
+    // 中央岛架：粮油 / 零食
+    [
+      { cat: "daily", x: -4.5 },
+      { cat: "snack", x: 4.5 },
+    ].forEach(({ cat, x }) => {
       const shelf = createMarketShelf(cat, labels[cat], { doubleSided: true });
-      shelf.position.set(-5.4 + i * 3.6, 0, -2.2);
+      shelf.position.set(x, 0, -1.2);
       this.threeScene.add(shelf);
-      this.addColliderFor(shelf, 1.2, 0.7);
+      this.addColliderFor(shelf, 1.0, 0.55);
     });
 
-    // Front island row (3 shelves, same grid)
-    ["veg", "drinks", "snack"].forEach((cat, i) => {
+    // 前区岛架：日用品 / 水果（新加三类里的后两类）
+    [
+      { cat: "household", x: -4.5 },
+      { cat: "fruit", x: 4.5 },
+    ].forEach(({ cat, x }) => {
       const shelf = createMarketShelf(cat, labels[cat], { doubleSided: true });
-      shelf.position.set(-5.4 + i * 3.6, 0, 2.2);
+      shelf.position.set(x, 0, 2.4);
       this.threeScene.add(shelf);
-      this.addColliderFor(shelf, 1.2, 0.7);
+      this.addColliderFor(shelf, 1.0, 0.55);
     });
 
     // Carts near entrance (left), checkout (right) — clear plaza
@@ -509,59 +541,97 @@ export class MarketScene extends BaseScene {
     this.threeScene.add(checkout, checkLabel, cashier, cashLabel);
     this.addColliderAt(6.2, 4.0, 0.35, 0.35);
 
-    // Other shoppers — keep away from player spawn plaza
+    // 顾客：大人推车 + 小朋友，途经点会停步并双腿并拢
     const shopperA = createNPC("mom");
-    shopperA.position.set(-2.5, 0, -0.8);
+    shopperA.position.set(0, 0, 3.2);
     shopperA.userData.waypoints = [
-      { x: -2.5, z: -0.8 },
-      { x: 1.5, z: 0.4 },
-      { x: 1.2, z: 3.2 },
-      { x: -3.0, z: 3.0 },
+      { x: 0, z: 3.2, pause: 0.6 },
+      { x: -3.2, z: 2.4, yaw: Math.PI / 2, pause: 2.0 },
+      { x: 0, z: 0.6, pause: 0.8 },
+      { x: 3.2, z: 2.4, yaw: -Math.PI / 2, pause: 2.0 },
     ];
-    shopperA.userData.speed = 1.35;
+    shopperA.userData.speed = 1.25;
     shopperA.userData.wp = 0;
     attachNpcCart(shopperA);
 
     const shopperB = createNPC("dad");
-    shopperB.position.set(3.5, 0, -0.5);
+    shopperB.position.set(1.2, 0, 0.4);
     shopperB.userData.waypoints = [
-      { x: 3.5, z: -0.5 },
-      { x: 5.0, z: 1.5 },
-      { x: 2.0, z: 3.5 },
-      { x: 4.0, z: -3.5 },
+      { x: 1.2, z: 0.4, pause: 0.5 },
+      { x: 3.2, z: -1.2, yaw: -Math.PI / 2, pause: 2.2 },
+      { x: 0, z: 3.6, pause: 0.7 },
+      { x: -3.2, z: -1.2, yaw: Math.PI / 2, pause: 2.0 },
     ];
-    shopperB.userData.speed = 1.2;
+    shopperB.userData.speed = 1.15;
     shopperB.userData.wp = 0;
     attachNpcCart(shopperB);
 
     const shopperC = createNPC("mom");
     shopperC.scale.setScalar(0.95);
-    shopperC.position.set(-1.0, 0, -4.0);
-    shopperC.rotation.y = Math.PI * 0.2;
+    shopperC.position.set(0, 0, -3.8);
     shopperC.userData.waypoints = [
-      { x: -1.0, z: -4.0 },
-      { x: 2.5, z: -4.2 },
-      { x: 3.0, z: -3.0 },
-      { x: -2.0, z: -3.5 },
+      { x: 0, z: -3.8, yaw: Math.PI, pause: 1.8 },
+      { x: -2.8, z: -3.6, yaw: Math.PI / 2, pause: 1.6 },
+      { x: 2.8, z: -3.6, yaw: -Math.PI / 2, pause: 1.6 },
+      { x: 0, z: -2.6, pause: 0.8 },
     ];
-    shopperC.userData.speed = 1.15;
+    shopperC.userData.speed = 1.1;
     shopperC.userData.wp = 0;
     attachNpcCart(shopperC);
 
-    this.npcs.push(shopperA, shopperB, shopperC);
-    this.threeScene.add(shopperA, shopperB, shopperC);
+    const kidA = createNPC("kidGirl");
+    kidA.position.set(-1.0, 0, 1.5);
+    kidA.userData.waypoints = [
+      { x: -1.0, z: 1.5, pause: 0.5 },
+      { x: -3.0, z: 2.2, yaw: Math.PI / 2, pause: 2.4 },
+      { x: 0.5, z: 3.0, pause: 0.8 },
+      { x: 3.0, z: 2.2, yaw: -Math.PI / 2, pause: 2.2 },
+    ];
+    kidA.userData.speed = 1.5;
+    kidA.userData.wp = 0;
+
+    const kidB = createNPC("kidBoy");
+    kidB.position.set(0.8, 0, -3.2);
+    kidB.userData.waypoints = [
+      { x: 0.8, z: -3.2, yaw: Math.PI, pause: 2.0 },
+      { x: 2.5, z: -3.5, yaw: -Math.PI / 2, pause: 1.8 },
+      { x: -0.5, z: -2.8, pause: 0.7 },
+      { x: -2.5, z: -3.5, yaw: Math.PI / 2, pause: 1.8 },
+    ];
+    kidB.userData.speed = 1.6;
+    kidB.userData.wp = 0;
+
+    this.npcs.push(shopperA, shopperB, shopperC, kidA, kidB);
+    this.threeScene.add(shopperA, shopperB, shopperC, kidA, kidB);
 
     game.toast("你在入口广场 · 头顶粉色「小蜜糖」就是你 · 点地板就能走");
 
-    // Promo island — center aisle, not on spawn
-    const promo = softBox(1.6, 0.7, 1.0, 0xffe08a);
-    promo.position.set(1.5, 0.35, 4.2);
-    const promoTop = softBox(1.5, 0.08, 0.9, 0xfff8e0);
-    promoTop.position.set(1.5, 0.72, 4.2);
-    const promoSign = makeLabelSprite("今日特价", { scaleX: 0.78, scaleY: 0.2, fontSize: 38 });
-    promoSign.position.set(1.5, 1.2, 4.2);
+    // 今日特价台：放上实物商品
+    const promoX = 0;
+    const promoZ = 4.4;
+    const promo = softBox(1.8, 0.7, 1.1, 0xffe08a);
+    promo.position.set(promoX, 0.35, promoZ);
+    const promoTop = softBox(1.7, 0.08, 1.0, 0xfff8e0);
+    promoTop.position.set(promoX, 0.72, promoZ);
+    const promoSign = makeLabelSprite("今日特价", { scaleX: 0.9, scaleY: 0.22, fontSize: 42 });
+    promoSign.position.set(promoX, 1.35, promoZ);
     this.threeScene.add(promo, promoTop, promoSign);
-    this.addColliderAt(1.5, 4.2, 0.9, 0.6);
+    const promoGoods = [
+      { cat: "snack", id: "chips", x: -0.45, z: 0.15 },
+      { cat: "toys", id: "ball", x: 0, z: -0.1 },
+      { cat: "fruit", id: "apple", x: 0.45, z: 0.12 },
+      { cat: "toys", id: "blocks", x: -0.25, z: -0.25 },
+      { cat: "snack", id: "bread", x: 0.35, z: -0.22 },
+      { cat: "household", id: "soap", x: 0.1, z: 0.25 },
+    ];
+    promoGoods.forEach((pg, i) => {
+      const def = (MARKET_GOODS[pg.cat] || []).find((g) => g.id === pg.id);
+      const mesh = createGoodsMesh(pg.cat, def || { id: pg.id, name: pg.id }, i);
+      mesh.position.set(promoX + pg.x, 0.88, promoZ + pg.z);
+      mesh.scale.setScalar(0.9);
+      this.threeScene.add(mesh);
+    });
+    this.addColliderAt(promoX, promoZ, 1.0, 0.65);
 
     this.threeScene.add(createPlant(7.5, -4));
     this.threeScene.add(createPlant(-7.5, -4));

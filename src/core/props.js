@@ -1,5 +1,14 @@
 import * as THREE from "three";
-import { box, cyl, sphere, mat, makeInteractable, makeInteractableHit, makeLabelSprite } from "./builders.js";
+import {
+  box,
+  cyl,
+  sphere,
+  mat,
+  makeInteractable,
+  makeInteractableHit,
+  makeLabelSprite,
+  surfaceTexture,
+} from "./builders.js";
 import { COLORS, MARKET_GOODS } from "./constants.js";
 
 /** Rounded-ish soft box via slightly bevelled look (stacked) */
@@ -116,7 +125,12 @@ export function createSofa() {
 export function createCoffeeTable() {
   const g = new THREE.Group();
   // Oval glass-top coffee table
-  const top = cyl(0.55, 0.48, 0.04, 0xe8d8c0, { roughness: 0.35, metalness: 0.08, segments: 32 });
+  const top = cyl(0.55, 0.48, 0.04, 0xe8d8c0, {
+    roughness: 0.35,
+    metalness: 0.08,
+    segments: 32,
+    map: surfaceTexture(0xe8d8c0, "wood"),
+  });
   top.scale.set(1.35, 1, 1);
   top.position.y = 0.42;
   const glass = cyl(0.5, 0.44, 0.02, 0xc8e0f0, {
@@ -258,9 +272,12 @@ export function createDogBed() {
 
 export function createRug() {
   const g = new THREE.Group();
-  const rug = softBox(2.8, 0.03, 2.0, 0xffc8d8, { roughness: 0.95 });
+  const rug = softBox(2.8, 0.03, 2.0, 0xffc8d8, {
+    roughness: 0.95,
+    map: surfaceTexture(0xffc8d8, "picnic"),
+  });
   rug.position.y = 0.08;
-  const border = softBox(2.9, 0.02, 2.1, 0xff9bb8);
+  const border = softBox(2.9, 0.02, 2.1, 0xff9bb8, { map: surfaceTexture(0xff9bb8, "cloth") });
   border.position.y = 0.075;
   g.add(border, rug);
   return g;
@@ -268,7 +285,7 @@ export function createRug() {
 
 export function createSideTable() {
   const g = new THREE.Group();
-  const top = softBox(0.55, 0.06, 0.55, 0xe0c8a8);
+  const top = softBox(0.55, 0.06, 0.55, 0xe0c8a8, { map: surfaceTexture(0xe0c8a8, "wood") });
   top.position.y = 0.55;
   const leg = cyl(0.06, 0.08, 0.5, 0xc4a080);
   leg.position.y = 0.28;
@@ -367,7 +384,7 @@ export function updateFridgeDoors(fridge, dt = 0.016) {
 
 export function createSinkUnit() {
   const g = new THREE.Group();
-  const counter = softBox(1.4, 0.12, 0.85, 0xe8eef4);
+  const counter = softBox(1.4, 0.12, 0.85, 0xe8eef4, { map: surfaceTexture(0xe8eef4, "marble") });
   counter.position.y = 1.0;
   const cab = softBox(1.35, 0.9, 0.8, 0xffffff);
   cab.position.y = 0.45;
@@ -564,7 +581,7 @@ export function createDishwasher() {
 
 export function createKitchenCounter(width = 8) {
   const g = new THREE.Group();
-  const top = softBox(width, 0.12, 1.05, 0xe8eef4);
+  const top = softBox(width, 0.12, 1.05, 0xe8eef4, { map: surfaceTexture(0xe8eef4, "kitchen") });
   top.position.y = 1.0;
   const base = softBox(width, 0.9, 1.0, 0xffffff);
   base.position.y = 0.45;
@@ -619,7 +636,15 @@ export function createMarketShelf(cat, label, { doubleSided = true } = {}) {
   topBar.position.set(0, 2.15, 0);
   g.add(spine, base, topBar);
 
-  const headerColors = { veg: 0x6ecf7a, drinks: 0x7ec8ff, daily: 0xffe08a, snack: 0xff9bb8 };
+  const headerColors = {
+    veg: 0x6ecf7a,
+    drinks: 0x7ec8ff,
+    daily: 0xffe08a,
+    snack: 0xff9bb8,
+    toys: 0xff8a5a,
+    household: 0xb0d4ff,
+    fruit: 0xffb347,
+  };
   const header = softBox(2.05, 0.12, 0.05, headerColors[cat] || 0xffe08a);
   header.position.set(0, 2.28, 0);
   g.add(header);
@@ -651,14 +676,24 @@ export function createMarketShelf(cat, label, { doubleSided = true } = {}) {
       }
     }
 
-    const title = label || ({ veg: "蔬菜", drinks: "饮料", daily: "粮油", snack: "零食" }[cat] || cat);
+    const title =
+      label ||
+      ({
+        veg: "蔬菜",
+        drinks: "饮料",
+        daily: "粮油",
+        snack: "零食",
+        toys: "玩具",
+        household: "日用品",
+        fruit: "水果",
+      }[cat] || cat);
     const sign = makeLabelSprite(title, {
       bg: "rgba(80,40,30,0.82)",
-      scaleX: 0.58,
-      scaleY: 0.15,
-      fontSize: 40,
+      scaleX: 1.05,
+      scaleY: 0.28,
+      fontSize: 70,
     });
-    sign.position.set(0, 2.28, side * (halfD + 0.05));
+    sign.position.set(0, 2.32, side * (halfD + 0.05));
     g.add(sign);
 
     // 整面可点：覆盖货架正面（透明碰撞盒，仍参与射线拾取）
@@ -673,11 +708,11 @@ export function createMarketShelf(cat, label, { doubleSided = true } = {}) {
     makeInteractableHit(hit, { type: "shelf", cat });
     const buy = makeLabelSprite(`选购·${title}`, {
       bg: "rgba(239,107,138,0.95)",
-      scaleX: 0.6,
-      scaleY: 0.15,
-      fontSize: 40,
+      scaleX: 1.1,
+      scaleY: 0.28,
+      fontSize: 70,
     });
-    buy.position.set(0, 2.48, side * (halfD + 0.12));
+    buy.position.set(0, 2.62, side * (halfD + 0.12));
     g.add(hit, buy);
   }
 
@@ -811,6 +846,93 @@ export function createGoodsMesh(cat, itemDef, seed = 0) {
     const slice = softBox(0.02, 0.07, 0.09, 0xfff0d0);
     slice.position.set(0.1, 0.06, 0);
     g.add(loaf, crust, slice);
+  } else if (id === "blocks") {
+    [
+      [0xff6b8a, -0.04, 0.04],
+      [0x7ec8ff, 0.04, 0.04],
+      [0xffe08a, 0, 0.12],
+      [0x6ecf7a, -0.02, 0.2],
+    ].forEach(([c, x, y]) => {
+      const b = softBox(0.08, 0.08, 0.08, c);
+      b.position.set(x, y, 0);
+      g.add(b);
+    });
+  } else if (id === "doll") {
+    const body = softBox(0.1, 0.14, 0.08, hex || 0xffb0c8);
+    body.position.y = 0.1;
+    const head = sphere(0.055, 0xffd4bc, { segments: 12 });
+    head.position.y = 0.22;
+    const hair = sphere(0.058, 0xc87840, { segments: 10 });
+    hair.scale.set(1.1, 0.7, 1);
+    hair.position.set(0, 0.26, -0.01);
+    g.add(body, head, hair);
+  } else if (id === "toyCar") {
+    const body = softBox(0.18, 0.06, 0.1, hex || 0x7ec8ff);
+    body.position.y = 0.08;
+    const cabin = softBox(0.1, 0.06, 0.08, 0xa8d8ff);
+    cabin.position.set(-0.02, 0.13, 0);
+    [[-0.06, 0.03, 0.06], [0.06, 0.03, 0.06], [-0.06, 0.03, -0.06], [0.06, 0.03, -0.06]].forEach(([x, y, z]) => {
+      const w = cyl(0.025, 0.025, 0.02, 0x2a2830, { segments: 10 });
+      w.rotation.z = Math.PI / 2;
+      w.position.set(x, y, z);
+      g.add(w);
+    });
+    g.add(body, cabin);
+  } else if (id === "ball") {
+    const ball = sphere(0.1, hex || 0xffe08a, { roughness: 0.45, segments: 16 });
+    ball.position.y = 0.1;
+    const stripe = softBox(0.2, 0.02, 0.02, 0xef6b8a);
+    stripe.position.y = 0.1;
+    g.add(ball, stripe);
+  } else if (id === "tissue") {
+    const box = softBox(0.14, 0.1, 0.1, 0xfff8f0);
+    box.position.y = 0.05;
+    const slot = softBox(0.1, 0.02, 0.04, 0xffffff);
+    slot.position.y = 0.11;
+    g.add(box, slot);
+  } else if (id === "soap") {
+    const bar = softBox(0.12, 0.05, 0.08, hex || 0xffb0c8);
+    bar.position.y = 0.04;
+    g.add(bar);
+  } else if (id === "shampoo") {
+    const bottle = cyl(0.04, 0.05, 0.22, hex || 0xc9a0e0, { roughness: 0.3 });
+    bottle.position.y = 0.11;
+    const cap = cyl(0.025, 0.03, 0.04, 0xffffff);
+    cap.position.y = 0.24;
+    g.add(bottle, cap);
+  } else if (id === "toothbrush") {
+    const handle = softBox(0.03, 0.16, 0.02, hex || 0x7ec8ff);
+    handle.position.y = 0.1;
+    const head = softBox(0.04, 0.05, 0.025, 0xffffff);
+    head.position.y = 0.2;
+    g.add(handle, head);
+  } else if (id === "towel") {
+    const fold = softBox(0.14, 0.08, 0.1, hex || 0x6ecf7a);
+    fold.position.y = 0.05;
+    const fold2 = softBox(0.12, 0.04, 0.08, 0x5abf6a);
+    fold2.position.y = 0.1;
+    g.add(fold, fold2);
+  } else if (id === "apple") {
+    const body = sphere(0.09, hex || 0xef6b6a, { roughness: 0.45 });
+    body.position.y = 0.09;
+    const stem = cyl(0.01, 0.01, 0.04, 0x5a3a28);
+    stem.position.y = 0.18;
+    g.add(body, stem);
+  } else if (id === "banana") {
+    const body = cyl(0.035, 0.03, 0.22, hex || 0xffe066, { roughness: 0.55 });
+    body.rotation.z = 0.5;
+    body.position.set(0.02, 0.1, 0);
+    g.add(body);
+  } else if (id === "orange") {
+    const body = sphere(0.09, hex || 0xff9f40, { roughness: 0.55 });
+    body.position.y = 0.09;
+    g.add(body);
+  } else if (id === "grape") {
+    for (let i = 0; i < 6; i++) {
+      const berry = sphere(0.035, hex || 0x9b6ecf, { segments: 8 });
+      berry.position.set((i % 3) * 0.04 - 0.04, 0.06 + Math.floor(i / 3) * 0.05, (i % 2) * 0.03);
+      g.add(berry);
+    }
   } else {
     // fallback pack with color
     const pack = softBox(0.14, 0.18, 0.09, hex);
@@ -874,7 +996,11 @@ export function createShoppingCart() {
 
 export function createCheckoutCounter() {
   const g = new THREE.Group();
-  const desk = softBox(2.4, 1.0, 1.0, 0x6a7588, { roughness: 0.45, metalness: 0.15 });
+  const desk = softBox(2.4, 1.0, 1.0, 0x6a7588, {
+    roughness: 0.45,
+    metalness: 0.15,
+    map: surfaceTexture(0x6a7588, "marble"),
+  });
   desk.position.y = 0.55;
   const front = softBox(2.35, 0.9, 0.06, 0xef6b8a);
   front.position.set(0, 0.5, 0.52);
@@ -909,7 +1035,11 @@ export function createAutoDoor() {
 
 export function createDiningTable() {
   const g = new THREE.Group();
-  const top = cyl(1.15, 1.1, 0.08, 0xd4a574, { roughness: 0.55, segments: 36 });
+  const top = cyl(1.15, 1.1, 0.08, 0xd4a574, {
+    roughness: 0.55,
+    segments: 36,
+    map: surfaceTexture(0xd4a574, "wood"),
+  });
   top.scale.set(1.25, 1, 0.7);
   top.position.y = 0.88;
   const apron = softBox(2.4, 0.08, 1.2, 0xc49060);
@@ -920,7 +1050,7 @@ export function createDiningTable() {
     g.add(leg);
   });
   [-0.65, 0, 0.65].forEach((x) => {
-    const matMesh = softBox(0.4, 0.015, 0.3, 0xffe8f0);
+    const matMesh = softBox(0.4, 0.015, 0.3, 0xffe8f0, { map: surfaceTexture(0xffe8f0, "picnic") });
     matMesh.position.set(x, 0.93, 0);
     g.add(matMesh);
   });
@@ -991,7 +1121,10 @@ function dishColor(dish) {
 export function createVanity() {
   const g = new THREE.Group();
   // Soft vanity desk with drawers + oval mirror
-  const deskTop = softBox(2.2, 0.08, 0.7, 0xf8e0ea, { roughness: 0.55 });
+  const deskTop = softBox(2.2, 0.08, 0.7, 0xf8e0ea, {
+    roughness: 0.55,
+    map: surfaceTexture(0xf8e0ea, "vanity"),
+  });
   deskTop.position.y = 0.88;
   const cabinet = softBox(2.0, 0.7, 0.58, 0xffe8f0, { roughness: 0.6 });
   cabinet.position.y = 0.42;
@@ -1105,7 +1238,10 @@ export function createVase() {
 /** Kitchen island / prep table */
 export function createKitchenIsland() {
   const g = new THREE.Group();
-  const top = softBox(1.8, 0.08, 0.9, 0xe8e0d4, { roughness: 0.4 });
+  const top = softBox(1.8, 0.08, 0.9, 0xe8e0d4, {
+    roughness: 0.4,
+    map: surfaceTexture(0xe8e0d4, "wood"),
+  });
   top.position.y = 0.95;
   const base = softBox(1.7, 0.9, 0.8, 0xd0d8e0, { roughness: 0.55 });
   base.position.y = 0.45;
