@@ -14,6 +14,13 @@ export function createGameState() {
     cart: [],
     bag: [],
     shoppingHint: [],
+    /** 用户最近选中的菜谱，洗菜/回灶台后继续展开 */
+    lastRecipeId: null,
+    lastRecipeStation: "stove",
+    /** idle | calling | helping */
+    cookHelpPhase: "idle",
+    /** 客厅分别邀请爸妈吃饭 */
+    mealInvited: { dad: false, mom: false },
     fridge: [],
     prep: [],
     holding: null,
@@ -21,6 +28,7 @@ export function createGameState() {
     plated: [],
     carrying: null,
     tableFood: [],
+    /** idle | ready | invite | seating | eating | done */
     mealPhase: "idle",
     cooking: false,
     power: {

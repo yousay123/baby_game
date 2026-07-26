@@ -3,7 +3,16 @@ import { box, makeInteractable, makeLabelSprite, wallTexture } from "../core/bui
 import { COLORS, APPLIANCE_NAMES } from "../core/constants.js";
 import { BaseScene } from "./WorldScenes.js";
 import { washPrep } from "../ui/HUD.js";
-import { isPowerOn, getPowerMode, placeOnTable, setMealPhase, claimMealBonus } from "../gameplay/systems.js";
+import {
+  isPowerOn,
+  getPowerMode,
+  placeOnTable,
+  setMealPhase,
+  claimMealBonus,
+  getFeastProgress,
+  nextFeastAutoDish,
+} from "../gameplay/systems.js";
+import { emit } from "../gameplay/GameState.js";
 import {
   createNPC,
   moveToward,
@@ -12,7 +21,9 @@ import {
   setSitPose,
   setLiePose,
   setPlayerSit,
+  setCookBusyPose,
 } from "../characters/Avatar.js";
+import { tryMove } from "../core/collision.js";
 import {
   createFridge,
   setFridgeDoorsOpen,
@@ -32,9 +43,7 @@ import {
   createDiningChair,
   createPlant,
   createWindow,
-  createKitchenIsland,
   createWallShelf,
-  createCabinet,
   createCushion,
   createVase,
   createPicture,
@@ -48,6 +57,9 @@ export class KitchenScene extends BaseScene {
   constructor() {
     super("kitchen");
     this.spawn = { x: 0, z: 2.2, yaw: Math.PI };
+    this.cookHelpers = [];
+    this.dad = null;
+    this.mom = null;
   }
 
   async onEnter(game) {
@@ -122,6 +134,11 @@ export class KitchenScene extends BaseScene {
     this.stove = createStove();
     makeInteractable(this.stove, { type: "cook", cook: "stirfry", power: "stove" });
     place(this.stove, -0.4, "燃气灶");
+    this.addColliderAt(-0.4, rowZ, 0.55, 0.45);
+    // 汤锅标签（锅已挂在灶眼上）
+    const potLabel = makeLabelSprite("汤锅", { scaleX: 0.55, scaleY: 0.14, fontSize: 28 });
+    potLabel.position.set(-0.1, 1.55, rowZ + 0.25);
+    this.threeScene.add(potLabel);
 
     const hood = createHood();
     hood.position.set(-0.4, 2.05, -2.9);
@@ -132,10 +149,12 @@ export class KitchenScene extends BaseScene {
     const rice = createRiceCooker();
     makeInteractable(rice, { type: "cook", cook: "rice", power: "rice" });
     place(rice, 1.4, "电饭煲");
+    this.addColliderAt(1.4, rowZ, 0.4, 0.4);
 
     this.oven = createOven();
     makeInteractable(this.oven, { type: "cook", cook: "bread", power: "oven" });
     place(this.oven, 3.0, "烤箱", 1.25);
+    this.addColliderAt(3.0, rowZ, 0.5, 0.45);
 
     const mw = createMicrowave();
     mw.position.set(4.2, 1.2, -2.8);
@@ -149,14 +168,6 @@ export class KitchenScene extends BaseScene {
     const dwLabel = makeLabelSprite("洗碗机");
     dwLabel.position.set(4.3, 1.15, -2.75);
     this.threeScene.add(dw, dwLabel);
-
-    // Prep island in front of stove (aligned)
-    const pot = box(0.4, 0.32, 0.4, 0xc0c8d0, { metalness: 0.4, roughness: 0.35 });
-    pot.position.set(-0.4, 1.18, -2.15);
-    makeInteractable(pot, { type: "cook", cook: "porridge", power: "stove" });
-    const potLabel = makeLabelSprite("汤锅");
-    potLabel.position.set(-0.4, 1.55, -2.15);
-    this.threeScene.add(pot, potLabel);
 
     const board = box(0.42, 0.04, 0.26, 0xd4a574);
     board.position.set(1.4, 1.08, -2.35);
@@ -172,6 +183,7 @@ export class KitchenScene extends BaseScene {
     const plateLabel = makeLabelSprite("装盘台·点这里", { scaleX: 0.85, scaleY: 0.2, fontSize: 30 });
     plateLabel.position.set(3.6, 1.45, 1.8);
     this.threeScene.add(plateStation, plateTop, plateLabel);
+    this.addColliderAt(3.6, 1.8, 0.8, 0.5);
 
     const emptyPlate = createPlateOrBowl("plate", null);
     emptyPlate.position.set(3.3, 1.05, 1.9);
@@ -185,19 +197,10 @@ export class KitchenScene extends BaseScene {
     this.platedGroup.position.set(3.6, 1.08, 1.8);
     this.threeScene.add(this.platedGroup);
 
-    // —— Kitchen décor ——
-    const island = createKitchenIsland();
-    island.position.set(-1.2, 0, 0.6);
-    this.threeScene.add(island);
-    this.addColliderAt(-1.2, 0.6, 1.0, 0.5);
-
+    // —— Kitchen décor（去掉挡路无用中岛/闲置柜子）——
     const wallShelf = createWallShelf();
     wallShelf.position.set(-2.5, 2.0, -3.2);
     this.threeScene.add(wallShelf);
-
-    const kitCab = createCabinet(1.4, 0xe8eef4);
-    kitCab.position.set(-4.2, 0, 1.5);
-    this.threeScene.add(kitCab);
 
     this.threeScene.add(createPlant(4.5, 2.5));
     this.threeScene.add(createPlant(-4.6, 2.8));
@@ -218,6 +221,54 @@ export class KitchenScene extends BaseScene {
 
     this.refreshPlatedVisuals(game);
     this.applyPower(game.state);
+    this.cookHelpers = [];
+    this.dad = null;
+    this.mom = null;
+  }
+
+  /** 喊爸爸妈妈来厨房打下手，玩家主厨 */
+  onCallCookHelp(game) {
+    if (game.state.cookHelpPhase === "helping") {
+      game.toast("爸妈已经在帮你打下手啦～");
+      return;
+    }
+    if (!this.dad) {
+      this.dad = createNPC("dad");
+      this.dad.position.set(-5.2, 0, 2.5);
+      this.threeScene.add(this.dad);
+    }
+    if (!this.mom) {
+      this.mom = createNPC("mom");
+      this.mom.position.set(-5.2, 0, 3.2);
+      this.threeScene.add(this.mom);
+    }
+    this.dad.visible = true;
+    this.mom.visible = true;
+    game.state.cookHelpPhase = "calling";
+    this._feastCookT = 0;
+    this._feastCookWho = 0;
+    this.cookHelpers = [
+      { npc: this.dad, target: { x: -1.05, z: -1.55 }, done: false, label: "爸爸" },
+      { npc: this.mom, target: { x: 0.25, z: -1.55 }, done: false, label: "妈妈" },
+    ];
+    game.toast("爸爸妈妈过来帮厨啦！一起做满四菜一汤和米饭～");
+  }
+
+  /** 宴席做齐后，清掉厨房帮厨（爸妈回客厅等邀请） */
+  clearCookHelpers(game) {
+    this.cookHelpers = [];
+    if (this.dad) {
+      this.threeScene.remove(this.dad);
+      this.dad = null;
+    }
+    if (this.mom) {
+      this.threeScene.remove(this.mom);
+      this.mom = null;
+    }
+    if (game?.state) {
+      game.state.cookHelpPhase = "idle";
+      emit(game.state);
+    }
   }
 
   applyPower(state) {
@@ -254,6 +305,93 @@ export class KitchenScene extends BaseScene {
     if (this.fridge) updateFridgeDoors(this.fridge, dt);
     this._sinkTime = (this._sinkTime || 0) + dt;
     if (this.sink) updateSinkWater(this.sink, this._sinkTime);
+
+    if (this.cookHelpers?.length) {
+      const { halfW, halfD } = this.getWalkHalf();
+      let allDone = true;
+      for (const m of this.cookHelpers) {
+        if (m.done) continue;
+        allDone = false;
+        const dx = m.target.x - m.npc.position.x;
+        const dz = m.target.z - m.npc.position.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist < 0.15) {
+          m.npc.position.x = m.target.x;
+          m.npc.position.z = m.target.z;
+          m.npc.rotation.y = Math.PI;
+          m.done = true;
+          updateWalkAnim(m.npc, dt, false);
+          continue;
+        }
+        const step = Math.min(dist, 1.6 * dt);
+        const next = tryMove(
+          m.npc.position.x,
+          m.npc.position.z,
+          (dx / dist) * step,
+          (dz / dist) * step,
+          0.3,
+          this.colliders,
+          halfW,
+          halfD
+        );
+        const moved = next.x !== m.npc.position.x || next.z !== m.npc.position.z;
+        if (!moved) {
+          // 卡住则传送到目标旁，避免永远走不到
+          m.npc.position.x = m.target.x;
+          m.npc.position.z = m.target.z;
+          m.npc.rotation.y = Math.PI;
+          m.done = true;
+          updateWalkAnim(m.npc, dt, false);
+        } else {
+          m.npc.position.x = next.x;
+          m.npc.position.z = next.z;
+          m.npc.rotation.y = Math.atan2(dx, dz);
+          updateWalkAnim(m.npc, dt, true);
+        }
+      }
+      if (allDone && game.state.cookHelpPhase === "calling") {
+        game.state.cookHelpPhase = "helping";
+        game.toast("爸妈就位炒菜啦！做完会端到餐厅，做满四菜一汤和米饭再开饭～");
+        game.ui?.refresh?.(game.state);
+      }
+    }
+
+    // 帮厨忙碌：搅动炒菜，每隔几秒自动上一道宴席菜到餐桌
+    if (game.state.cookHelpPhase === "helping" && this.cookHelpers?.length) {
+      this._feastCookT = (this._feastCookT || 0) + dt;
+      const busyT = performance.now() * 0.001;
+      for (const m of this.cookHelpers) {
+        if (m.done) {
+          m.npc.rotation.y = Math.PI;
+          setCookBusyPose(m.npc, busyT + (m.label === "妈妈" ? 0.7 : 0));
+        }
+      }
+      if (this._feastCookT >= 4.2) {
+        this._feastCookT = 0;
+        const feast = getFeastProgress(game.state);
+        if (feast.complete) {
+          game.toast(`宴席齐啦！${feast.summary} · 去客厅分别请爸爸妈妈吃饭吧`);
+          this.clearCookHelpers(game);
+          game.ui?.refresh?.(game.state);
+        } else {
+          const dish = nextFeastAutoDish(game.state);
+          if (dish) {
+            game.state.tableFood.push(dish);
+            if (game.state.mealPhase === "idle") game.state.mealPhase = "ready";
+            emit(game.state);
+            const who = this.cookHelpers[(this._feastCookWho || 0) % this.cookHelpers.length]?.label || "爸妈";
+            this._feastCookWho = (this._feastCookWho || 0) + 1;
+            const now = getFeastProgress(game.state);
+            game.toast(`${who}做好了「${dish.dish}」端上餐桌！（${now.summary}）`);
+            game.ui?.refresh?.(game.state);
+            if (now.complete) {
+              game.toast("四菜一汤米饭齐啦！回客厅点爸爸、妈妈去吃饭～");
+              this.clearCookHelpers(game);
+            }
+          }
+        }
+      }
+    }
   }
 
   refreshPlatedVisuals(game) {
@@ -351,7 +489,9 @@ export class KitchenScene extends BaseScene {
       }
       if (d.type === "cook") {
         const station = d.power === "rice" ? "rice" : d.power === "oven" ? "oven" : "stove";
-        game.ui.openCookRecipeModal(station);
+        const keep =
+          game.state.lastRecipeStation === station ? game.state.lastRecipeId : game.state.lastRecipeId;
+        game.ui.openCookRecipeModal(station, keep);
         return;
       }
     };
@@ -471,11 +611,14 @@ export class DiningScene extends BaseScene {
 
     this.anchors = {
       dadEnter: { x: -0.5, z: 3.6 },
-      momEnter: { x: 0.5, z: 3.6 },
-      dogEnter: { x: 0, z: 3.6 },
+      momEnter: { x: 0.5, z: 3.8 },
+      dogEnter: { x: 0, z: 4.0 },
       dadSeat: { x: -1.5, z: 0 },
       momSeat: { x: 1.5, z: 0 },
-      dogUnder: { x: 0.9, z: 0.9 },
+      girlSeat: { x: 0, z: 1.05 },
+      /** 狗趴在餐桌前 */
+      dogFront: { x: 0, z: 1.75 },
+      dogUnder: { x: 0, z: 1.75 },
       tableFront: { x: 0, z: 1.5 },
     };
 
@@ -515,7 +658,7 @@ export class DiningScene extends BaseScene {
 
     this.refreshTableFood(game);
 
-    if (game.state.mealPhase === "calling" || game.state.mealPhase === "seating") {
+    if (game.state.mealPhase === "seating") {
       this.onCallFamily(game);
     } else if (game.state.mealPhase === "eating" || game.state.mealPhase === "done") {
       this.seatFamilyImmediate();
@@ -544,7 +687,6 @@ export class DiningScene extends BaseScene {
 
   onCallFamily(game) {
     setMealPhase(game.state, "seating");
-    // 爸妈座位若被玩家占用，先请玩家站起让座
     if (
       game.player?.userData.sitting &&
       (this.playerSeat === "dad" || this.playerSeat === "mom")
@@ -553,23 +695,37 @@ export class DiningScene extends BaseScene {
       this.playerSeat = null;
       game.toast("爸爸妈妈要坐这里啦，先站起来让座～");
     }
-    // Appear at dining entrance, then walk to seats
     this.dad.visible = true;
     this.mom.visible = true;
     this.dog.visible = true;
     setSitPose(this.dad, false);
     setSitPose(this.mom, false);
     setLiePose(this.dog, false);
+    this.dad.userData.pose = "stand";
+    this.mom.userData.pose = "stand";
     this.dad.position.set(this.anchors.dadEnter.x, 0, this.anchors.dadEnter.z);
     this.mom.position.set(this.anchors.momEnter.x, 0, this.anchors.momEnter.z);
     this.dog.position.set(this.anchors.dogEnter.x, 0, this.anchors.dogEnter.z);
     this.dog.scale.set(1, 1, 1);
-    game.toast("爸爸妈妈带着旺旺过来啦～");
+    game.toast("爸爸先走，妈妈跟上，旺旺殿后～你也去餐桌坐下吧");
+    // 一前一后：错开出发时间
     this.familyMoving = [
-      { npc: this.dad, target: this.anchors.dadSeat, done: false, sit: true },
-      { npc: this.mom, target: this.anchors.momSeat, done: false, sit: true },
-      { npc: this.dog, target: this.anchors.dogUnder, done: false, underTable: true },
+      { npc: this.dad, target: this.anchors.dadSeat, done: false, sit: true, wait: 0 },
+      { npc: this.mom, target: this.anchors.momSeat, done: false, sit: true, wait: 1.35 },
+      { npc: this.dog, target: this.anchors.dogFront, done: false, lieFront: true, wait: 2.6 },
     ];
+    // 玩家跟去自己的座位
+    if (game.player && typeof this.walkTo === "function") {
+      const seat = this.anchors.girlSeat;
+      this.walkTo({ x: seat.x, z: seat.z }, () => {
+        if (!game.player) return;
+        game.player.position.set(seat.x, 0, seat.z);
+        game.player.rotation.y = Math.PI;
+        setPlayerSit(game.player, true, { seatY: 0.48 });
+        this.playerSeat = "girl";
+        game.toast("你也坐好啦，等爸爸妈妈～");
+      });
+    }
   }
 
   seatFamilyImmediate() {
@@ -582,8 +738,8 @@ export class DiningScene extends BaseScene {
     this.mom.rotation.y = -Math.PI / 2;
     setSitPose(this.dad, true, { seatY: 0.48 });
     setSitPose(this.mom, true, { seatY: 0.48 });
-    this.dog.position.set(this.anchors.dogUnder.x, 0.05, this.anchors.dogUnder.z);
-    this.dog.scale.set(0.9, 0.75, 0.9);
+    this.dog.position.set(this.anchors.dogFront.x, 0.05, this.anchors.dogFront.z);
+    this.dog.scale.set(0.95, 0.8, 0.95);
     setLiePose(this.dog, true);
   }
 
@@ -658,14 +814,24 @@ export class DiningScene extends BaseScene {
       if (d.type === "table") {
         if (game.state.carrying) {
           if (placeOnTable(game.state)) {
-            game.toast("菜上桌啦！点右侧「喊爸爸妈妈吃饭」请他们来坐好～");
+            const feast = getFeastProgress(game.state);
+            if (feast.complete) {
+              game.toast(`菜上桌啦！宴席齐了（${feast.summary}）· 去客厅分别点爸爸妈妈吃饭`);
+            } else {
+              game.toast(`菜上桌啦！（${feast.summary}）· 还可以回厨房再做一道`);
+            }
             this.onFoodPlaced(game);
             game.syncCarryVisual();
             game.ui.refresh(game.state);
           }
         } else if (game.state.tableFood.length) {
+          const feast = getFeastProgress(game.state);
           game.ui.refresh(game.state);
-          game.toast("点右侧引导按钮，喊爸爸妈妈来坐下吃饭吧");
+          game.toast(
+            feast.complete
+              ? "宴席齐了！去客厅点爸爸、再点妈妈，一起回餐厅吃饭"
+              : `进度 ${feast.summary}，回厨房继续做饭吧`
+          );
         } else {
           game.toast("先去厨房做饭、装盘，再端过来放桌上");
         }
@@ -680,6 +846,12 @@ export class DiningScene extends BaseScene {
     let allDone = true;
     for (const m of this.familyMoving) {
       if (m.done) continue;
+      allDone = false;
+      if ((m.wait || 0) > 0) {
+        m.wait -= dt;
+        updateWalkAnim(m.npc, dt, false);
+        continue;
+      }
       const moving = moveToward(m.npc, m.target, m.npc.userData.speed || 2.4, dt);
       updateWalkAnim(m.npc, dt, moving);
       if (!moving) {
@@ -689,14 +861,13 @@ export class DiningScene extends BaseScene {
           setSitPose(m.npc, true, { seatY: 0.48 });
           m.npc.rotation.y = m.npc === this.dad ? Math.PI / 2 : -Math.PI / 2;
         }
-        if (m.underTable) {
-          m.npc.position.y = 0.05;
-          m.npc.scale.set(0.9, 0.72, 0.9);
+        if (m.lieFront || m.underTable) {
+          m.npc.position.set(m.target.x, 0.05, m.target.z);
+          m.npc.scale.set(0.95, 0.8, 0.95);
+          m.npc.rotation.y = Math.PI;
           setLiePose(m.npc, true);
-          game.toast("旺旺蹲到桌子底下啦～");
+          game.toast("旺旺趴在餐桌前啦～");
         }
-      } else {
-        allDone = false;
       }
     }
     if (allDone && game.state.mealPhase === "seating") {

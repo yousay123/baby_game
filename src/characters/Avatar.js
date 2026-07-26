@@ -757,9 +757,18 @@ export function createNPC(kind) {
       root.add(apron);
     }
   } else {
-    const jeans = softBox(0.24, 0.36, 0.14, pants, { roughness: 0.6 });
-    jeans.position.set(0, 0.62, 0);
+    // 用胶囊裤管代替方块，避免站着像积木
+    const jeans = new THREE.Group();
     jeans.name = "jeans";
+    jeans.position.set(0, 0.62, 0);
+    [-1, 1].forEach((side) => {
+      const tube = capsule(0.055, 0.28, pants, { roughness: 0.58 });
+      tube.position.set(side * 0.06, -0.02, 0);
+      jeans.add(tube);
+    });
+    const belt = softBox(0.22, 0.04, 0.12, hex3(preset.accent || "#3A4558"), { roughness: 0.5 });
+    belt.position.set(0, 0.14, 0.02);
+    jeans.add(belt);
     root.add(jeans);
   }
 
@@ -825,14 +834,14 @@ export function createNPC(kind) {
     arm.name = side < 0 ? "armL" : "armR";
     arm.position.set(side * 0.22, 1.34, 0.02);
 
-    const shoulder = sphere(male ? 0.055 : 0.062, shirt, { roughness: 0.5, segments: 12 });
-    shoulder.scale.set(1.1, 0.9, 1.0);
-    shoulder.position.set(0, -0.02, 0);
+    const shoulder = sphere(male ? 0.06 : 0.068, shirt, { roughness: 0.5, segments: 14 });
+    shoulder.scale.set(1.15, 0.95, 1.05);
+    shoulder.position.set(side * 0.02, -0.02, 0);
     shoulder.name = side < 0 ? "npcShoulderL" : "npcShoulderR";
     arm.add(shoulder);
 
-    const sleeveTube = capsule(0.048, 0.22, shirt, { roughness: 0.5 });
-    sleeveTube.position.set(0, -0.18, 0);
+    const sleeveTube = capsule(0.05, 0.24, shirt, { roughness: 0.5 });
+    sleeveTube.position.set(0, -0.2, 0);
     arm.add(sleeveTube);
 
     const forearm = capsule(0.038, 0.18, skin, skinOpt);
@@ -1056,6 +1065,25 @@ export function setPlayerSit(avatar, sitting = true, opts = {}) {
   void sleeveR;
 }
 
+/** 厨房忙碌炒菜：手臂前后搅动 */
+export function setCookBusyPose(npc, t = 0) {
+  if (!npc || npc.userData.sitting || npc.userData.kind === "dog") return;
+  const armL = npc.getObjectByName("armL");
+  const armR = npc.getObjectByName("armR");
+  const sway = Math.sin(t * 7) * 0.28;
+  if (armR) {
+    armR.rotation.x = -1.05 + sway;
+    armR.rotation.z = -0.12;
+    armR.rotation.y = 0.1;
+  }
+  if (armL) {
+    armL.rotation.x = -0.55 - sway * 0.35;
+    armL.rotation.z = 0.18;
+    armL.rotation.y = -0.08;
+  }
+  npc.userData.pose = "cook";
+}
+
 /** 站立静止：双腿并拢复位 */
 export function resetIdleStance(avatar) {
   if (!avatar || avatar.userData.sitting) return;
@@ -1086,6 +1114,8 @@ export function resetIdleStance(avatar) {
     calfR.rotation.set(0, 0, 0);
     calfR.position.set(0, calfY, 0);
   }
+  // 炒菜忙碌时保留手臂动作
+  if (avatar.userData.pose === "cook") return;
   if (!avatar.userData.pushingCart) {
     if (armL) {
       armL.rotation.x = 0;
@@ -1229,6 +1259,7 @@ export function updateWalkAnim(avatar, dt, moving) {
     return;
   }
 
+  if (avatar.userData.pose === "cook") avatar.userData.pose = "stand";
   avatar.userData.walking = true;
   avatar.userData.phase = (avatar.userData.phase || 0) + dt * 10;
   const s = Math.sin(avatar.userData.phase) * 0.5;

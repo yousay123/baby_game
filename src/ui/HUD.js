@@ -1,9 +1,20 @@
-import { SCENES, MAKEUP, MARKET_GOODS, APPLIANCE_NAMES, CHAR_STYLES, DISH_RECIPES, ALL_GOODS } from "../core/constants.js";
+import {
+  SCENES,
+  MAKEUP,
+  MARKET_GOODS,
+  APPLIANCE_NAMES,
+  CHAR_STYLES,
+  DISH_RECIPES,
+  DISH_CATEGORIES,
+  ALL_GOODS,
+  getDishCategory,
+} from "../core/constants.js";
 import {
   plateDish,
   pickUpPlated,
   placeOnTable,
   startMealCall,
+  getFeastProgress,
   putBagInFridge,
   takeFromFridge,
   washPrep,
@@ -60,9 +71,16 @@ export class HUD {
     toggle?.addEventListener("click", () => {
       panel?.classList.toggle("hud-collapsed");
       if (toggle) {
-        toggle.textContent = panel?.classList.contains("hud-collapsed") ? "物品" : "收起";
+        const collapsed = panel?.classList.contains("hud-collapsed");
+        const scene = this.game?.scenes?.currentId;
+        const openLabel = scene === "kitchen" || scene === "dining" ? "引导" : "物品";
+        toggle.textContent = collapsed ? openLabel : "收起";
       }
     });
+  }
+
+  _hudOpenLabel(sceneId) {
+    return sceneId === "kitchen" || sceneId === "dining" ? "引导" : "物品";
   }
 
   bindState(state) {
@@ -92,7 +110,7 @@ export class HUD {
         if (toggle) toggle.textContent = "收起";
       } else if (id !== "makeup") {
         panel.classList.add("hud-collapsed");
-        if (toggle) toggle.textContent = "物品";
+        if (toggle) toggle.textContent = this._hudOpenLabel(id);
       }
     }
     if (id === "makeup") {
@@ -160,6 +178,8 @@ export class HUD {
     }
 
     const list = document.getElementById("invList");
+    const guideSteps = document.getElementById("guideSteps");
+    const invCard = document.getElementById("invCard");
     const quest = document.getElementById("questText");
     const title = document.getElementById("questTitle");
     const actions = document.getElementById("hudActions");
@@ -168,6 +188,11 @@ export class HUD {
     const scene = this.game.scenes.currentId;
     actions.innerHTML = "";
     list.innerHTML = "";
+    if (guideSteps) {
+      guideSteps.innerHTML = "";
+      guideSteps.hidden = true;
+    }
+    if (invCard) invCard.hidden = false;
     if (quest) {
       quest.classList.remove("quest-clickable");
       quest.onclick = null;
@@ -212,7 +237,9 @@ export class HUD {
       addItems(state.bag, "还没结账");
       this.addBtn(actions, "去结账", () => this.doCheckout(state), "btn-coral");
     } else if (scene === "kitchen") {
+      // 引导合并进粉色任务卡；厨房不再显示「物品」栏
       title.textContent = "厨房引导";
+      if (invCard) invCard.hidden = true;
       const guide = this.buildKitchenGuide(state);
       quest.textContent = guide.quest;
       quest.classList.toggle("quest-clickable", !!guide.action?.onClick);
@@ -222,25 +249,27 @@ export class HUD {
             this.refresh(this.game.state);
           }
         : null;
-      list.innerHTML = "";
-      guide.steps.forEach((s, i) => {
-        const li = document.createElement("li");
-        li.className = s.done ? "guide-done" : s.current ? "guide-current" : "guide-todo";
-        if (s.onClick) {
-          li.classList.add("guide-clickable");
-          li.setAttribute("role", "button");
-          li.tabIndex = 0;
-          const tip = s.current ? "点我前往 ›" : "前往 ›";
-          li.innerHTML = `<span>${i + 1}. ${s.text}</span><em class="guide-go">${tip}</em>`;
-          li.onclick = () => {
-            s.onClick();
-            this.refresh(this.game.state);
-          };
-        } else {
-          li.innerHTML = `<span>${i + 1}. ${s.text}</span>`;
-        }
-        list.appendChild(li);
-      });
+      if (guideSteps) {
+        guideSteps.hidden = false;
+        guide.steps.forEach((s, i) => {
+          const li = document.createElement("li");
+          li.className = s.done ? "guide-done" : s.current ? "guide-current" : "guide-todo";
+          if (s.onClick) {
+            li.classList.add("guide-clickable");
+            li.setAttribute("role", "button");
+            li.tabIndex = 0;
+            const tip = s.current ? "点我前往 ›" : "前往 ›";
+            li.innerHTML = `<span>${i + 1}. ${s.text}</span><em class="guide-go">${tip}</em>`;
+            li.onclick = () => {
+              s.onClick();
+              this.refresh(this.game.state);
+            };
+          } else {
+            li.innerHTML = `<span>${i + 1}. ${s.text}</span>`;
+          }
+          guideSteps.appendChild(li);
+        });
+      }
       actions.innerHTML = "";
       if (guide.action) {
         this.addBtn(actions, guide.action.label, () => {
@@ -264,7 +293,12 @@ export class HUD {
           const sceneRef = this.game.scenes.current;
           const run = () => {
             if (placeOnTable(state)) {
-              this.toast("菜上桌啦！下一步：喊爸爸妈妈来坐下吃饭");
+              const feast = getFeastProgress(state);
+              this.toast(
+                feast.complete
+                  ? `菜上桌！宴席齐了（${feast.summary}）· 去客厅请爸妈`
+                  : `菜上桌！（${feast.summary}）· 可回厨房再做`
+              );
               sceneRef?.onFoodPlaced?.(this.game);
               this.game.syncCarryVisual();
               this.refresh(state);
@@ -278,16 +312,22 @@ export class HUD {
         }
         if (
           state.tableFood.length &&
-          !["eating", "done", "calling", "seating"].includes(state.mealPhase)
+          !["eating", "done", "invite", "seating"].includes(state.mealPhase)
         ) {
-          if (startMealCall(state)) {
-            this.toast("开饭啦——爸爸妈妈快来餐厅坐好！");
-            this.game.scenes.current?.onCallFamily?.(this.game);
-            this.refresh(state);
+          const res = startMealCall(state);
+          if (res?.ok) {
+            this.toast(res.msg);
+            this.game.go("home");
+            this.refresh(this.game.state);
+          } else {
+            this.toast(res?.msg || "还不能开饭");
           }
         }
       };
-      if (state.carrying || (state.tableFood.length && !["eating", "done", "calling", "seating"].includes(state.mealPhase))) {
+      if (
+        state.carrying ||
+        (state.tableFood.length && !["eating", "done", "invite", "seating"].includes(state.mealPhase))
+      ) {
         quest.classList.add("quest-clickable");
         quest.onclick = diningAct;
       }
@@ -299,14 +339,39 @@ export class HUD {
       if (state.carrying) {
         this.addBtn(actions, "▶ 走到餐桌放下", diningAct, "btn-coral");
       }
-      if (state.tableFood.length && state.mealPhase !== "eating" && state.mealPhase !== "done" && state.mealPhase !== "calling" && state.mealPhase !== "seating") {
-        this.addBtn(actions, "▶ 喊爸爸妈妈来坐下吃饭", diningAct, "btn-coral");
+      if (
+        state.tableFood.length &&
+        !["eating", "done", "invite", "seating"].includes(state.mealPhase)
+      ) {
+        const feast = getFeastProgress(state);
+        this.addBtn(
+          actions,
+          feast.complete ? "▶ 去客厅请爸妈吃饭" : "▶ 检查开饭条件",
+          diningAct,
+          "btn-coral"
+        );
+        if (!feast.complete) {
+          this.addBtn(actions, "回厨房继续做饭", () => this.game.go("kitchen"));
+        }
+      }
+      if (state.mealPhase === "invite") {
+        this.addBtn(actions, "▶ 去客厅点爸妈", () => this.game.go("home"), "btn-coral");
       }
     } else if (scene === "home") {
       title.textContent = "温馨小屋";
-      quest.textContent = state.bag.length
-        ? "提着购物袋，去厨房放冰箱吧"
-        : "点电器开关，或去厨房/餐厅";
+      if (state.mealPhase === "invite") {
+        const inv = state.mealInvited || {};
+        quest.textContent = !inv.dad
+          ? "下一步：点沙发上的爸爸，请他去餐厅吃饭"
+          : !inv.mom
+            ? "下一步：再点妈妈，请她一起去餐厅"
+            : "一家人出发去餐厅啦～";
+        quest.classList.add("quest-clickable");
+      } else {
+        quest.textContent = state.bag.length
+          ? "提着购物袋，去厨房放冰箱吧"
+          : "点电器开关，或去厨房/餐厅";
+      }
       addHead("手提袋");
       addItems(state.bag, "空");
       addHead("冰箱存货");
@@ -342,6 +407,7 @@ export class HUD {
   }
 
   kitchenQuest(state) {
+    const lastName = DISH_RECIPES.find((r) => r.id === state.lastRecipeId)?.name;
     if (state.bag.length) return "下一步：点这里 → 走到冰箱放食材";
     if (state.prep.some((i) => (i.tag === "veg" || i.tag === "meat" || i.tag === "seafood") && !i.washed)) {
       return "下一步：点这里 → 走到水槽洗菜";
@@ -350,6 +416,12 @@ export class HUD {
     if (state.plated.length && !state.carrying) return "下一步：点这里 → 端菜去餐厅";
     if (state.carrying) return "下一步：点这里 → 去餐厅上桌";
     if (state.cooking) return "正在做饭，稍等一下～";
+    if (state.cookHelpPhase === "helping") {
+      return lastName
+        ? `爸妈在打下手 · 点这里继续做「${lastName}」`
+        : "爸妈在打下手 · 点这里打开菜谱做饭";
+    }
+    if (lastName && state.prep.length) return `下一步：点这里 → 继续做「${lastName}」`;
     return "下一步：点这里 → 打开灶台菜谱做饭";
   }
 
@@ -386,9 +458,27 @@ export class HUD {
     };
 
     const goStoveRecipe = () => {
-      this.walkKitchenTo({ x: -0.4, z: -1.5 }, () => {
-        this.openCookRecipeModal("stove");
-      }, "走到燃气灶看菜谱～");
+      const station = state.lastRecipeStation || "stove";
+      const keepId = state.lastRecipeId || null;
+      const approach =
+        station === "rice"
+          ? { x: 1.4, z: -1.5 }
+          : station === "oven"
+            ? { x: 3.0, z: -1.5 }
+            : { x: -0.4, z: -1.5 };
+      this.walkKitchenTo(approach, () => {
+        this.openCookRecipeModal(station, keepId);
+      }, keepId ? "走到灶台继续做刚才那道菜～" : "走到燃气灶看菜谱～");
+    };
+
+    const callCookHelp = () => {
+      const scene = this.game.scenes.current;
+      if (typeof scene?.onCallCookHelp === "function") {
+        scene.onCallCookHelp(this.game);
+      } else {
+        this.toast("请先进入厨房再喊爸妈～");
+      }
+      this.refresh(this.game.state);
     };
 
     const goPlate = () => {
@@ -437,23 +527,35 @@ export class HUD {
     };
 
     const callFamily = async () => {
-      if (this.game.scenes.currentId !== "dining") {
-        await this.game.go("dining");
+      if (["invite", "seating", "eating", "done"].includes(state.mealPhase)) {
+        if (state.mealPhase === "invite") {
+          this.toast("去客厅分别点爸爸和妈妈～");
+          await this.game.go("home");
+        } else {
+          this.toast("爸爸妈妈已经在路上或坐好啦");
+        }
+        this.refresh(this.game.state);
+        return;
       }
-      if (startMealCall(state)) {
-        this.toast("开饭啦——爸爸妈妈快来餐厅坐好！");
-        this.game.scenes.current?.onCallFamily?.(this.game);
-      } else if (state.tableFood?.length) {
-        this.toast("爸爸妈妈已经在路上或坐好啦");
+      const res = startMealCall(state);
+      if (res?.ok) {
+        this.toast(res.msg);
+        await this.game.go("home");
       } else {
-        this.toast("先把菜放到餐桌上再喊人吃饭");
+        this.toast(res?.msg || "先把四菜一汤和米饭摆上餐桌哦");
+        if (!getFeastProgress(state).complete) {
+          await this.game.go("kitchen");
+        }
       }
       this.refresh(this.game.state);
     };
 
+    const lastDish = DISH_RECIPES.find((r) => r.id === state.lastRecipeId);
+    const cookLabel = lastDish ? `▶ 继续做「${lastDish.name}」` : "▶ 走到灶台打开菜谱";
+
     const steps = [
       {
-        text: "打开灶台菜谱，采购材料并做饭",
+        text: lastDish ? `选菜谱采购并做「${lastDish.name}」` : "打开灶台菜谱，采购材料并做饭",
         done: hasCookedFlow || state.cooking,
         onClick: goStoveRecipe,
       },
@@ -461,6 +563,11 @@ export class HUD {
         text: "蔬菜洗净（若需要）",
         done: !needsWash,
         onClick: goSinkWash,
+      },
+      {
+        text: "喊爸爸妈妈来一起做饭（可选）",
+        done: state.cookHelpPhase === "helping" || hasCookedFlow || state.cooking,
+        onClick: callCookHelp,
       },
       {
         text: "把做好的菜装盘/装碗",
@@ -473,8 +580,8 @@ export class HUD {
         onClick: () => goDiningServe(),
       },
       {
-        text: "喊爸爸妈妈来坐下吃饭",
-        done: ["calling", "seating", "eating", "done"].includes(state.mealPhase),
+        text: "宴席齐后去客厅请爸妈吃饭",
+        done: ["invite", "seating", "eating", "done"].includes(state.mealPhase),
         onClick: () => callFamily(),
       },
     ];
@@ -486,15 +593,15 @@ export class HUD {
 
     if (state.bag.length) {
       action = { label: "▶ 走到冰箱放食材", onClick: goFridge };
-      secondary.push({ label: "打开灶台菜谱", onClick: goStoveRecipe });
+      secondary.push({ label: cookLabel.replace("▶ ", ""), onClick: goStoveRecipe });
     } else if (needsWash) {
       action = { label: "▶ 走到水槽洗菜", onClick: goSinkWash };
-      secondary.push({ label: "打开灶台菜谱", onClick: goStoveRecipe });
+      secondary.push({ label: cookLabel.replace("▶ ", ""), onClick: goStoveRecipe });
     } else if (state.cooking) {
       action = { label: "正在做饭…请稍等", onClick: () => this.toast("锅里还在炒呢～") };
     } else if (state.cooked.length) {
       action = { label: "▶ 走到装盘台", onClick: goPlate };
-      secondary.push({ label: "打开灶台菜谱", onClick: goStoveRecipe });
+      secondary.push({ label: "再做一道菜", onClick: goStoveRecipe });
     } else if (state.plated.length && !state.carrying) {
       action = { label: "▶ 端菜去餐厅上桌", onClick: () => goDiningServe() };
     } else if (state.carrying) {
@@ -503,10 +610,13 @@ export class HUD {
       action = { label: "▶ 喊爸爸妈妈吃饭", onClick: () => callFamily() };
       secondary.push({ label: "再做一道菜", onClick: goStoveRecipe });
     } else {
-      action = { label: "▶ 走到灶台打开菜谱", onClick: goStoveRecipe };
+      action = { label: cookLabel, onClick: goStoveRecipe };
+      if (state.cookHelpPhase !== "helping") {
+        secondary.push({ label: "喊爸妈一起做饭", onClick: callCookHelp });
+      }
       secondary.push(
-        { label: "电饭煲菜谱", onClick: () => this.walkKitchenTo({ x: 1.4, z: -1.5 }, () => this.openCookRecipeModal("rice"), "走到电饭煲～") },
-        { label: "烤箱菜谱", onClick: () => this.walkKitchenTo({ x: 3.0, z: -1.5 }, () => this.openCookRecipeModal("oven"), "走到烤箱～") }
+        { label: "电饭煲菜谱", onClick: () => this.walkKitchenTo({ x: 1.4, z: -1.5 }, () => this.openCookRecipeModal("rice", state.lastRecipeId), "走到电饭煲～") },
+        { label: "烤箱菜谱", onClick: () => this.walkKitchenTo({ x: 3.0, z: -1.5 }, () => this.openCookRecipeModal("oven", state.lastRecipeId), "走到烤箱～") }
       );
     }
 
@@ -516,9 +626,14 @@ export class HUD {
   diningQuest(state) {
     if (state.mealPhase === "eating") return "一家人坐着吃饭聊天中～";
     if (state.mealPhase === "done") return "吃饱啦！可以回厨房再做一道菜";
-    if (state.mealPhase === "calling" || state.mealPhase === "seating") return "爸爸妈妈正在过来坐下…";
-    if (state.tableFood.length) return "下一步：喊爸爸妈妈来坐下吃饭";
+    if (state.mealPhase === "seating") return "爸爸先走、妈妈跟上，旺旺趴到餐桌前…";
+    if (state.mealPhase === "invite") return "下一步：去客厅分别点爸爸、妈妈请吃饭";
     if (state.carrying) return "下一步：把菜放到餐桌上";
+    if (state.tableFood.length) {
+      const feast = getFeastProgress(state);
+      if (feast.complete) return `宴席齐了（${feast.summary}）· 去客厅请爸妈吃饭`;
+      return `进度 ${feast.summary} · 点这里回厨房继续做`;
+    }
     return "先去厨房按引导做饭装盘再回来";
   }
 
@@ -551,12 +666,27 @@ export class HUD {
    */
   openCookRecipeModal(station = "stove", keepRecipeId = null) {
     const state = this.game.state;
-    const recipes = DISH_RECIPES.filter((r) => r.station === station);
+    const allStation = DISH_RECIPES.filter((r) => r.station === station);
     const stationName =
       station === "stove" ? "燃气灶菜谱" : station === "rice" ? "电饭煲菜谱" : "烤箱菜谱";
     const powerKey = station === "rice" ? "rice" : station === "oven" ? "oven" : "stove";
     const powerOn = isPowerOn(state, powerKey);
     const powerLabel = APPLIANCE_NAMES[powerKey] || powerKey;
+
+    const rememberRecipe = (recipeId) => {
+      state.lastRecipeId = recipeId;
+      state.lastRecipeStation = station;
+      emit(state);
+    };
+
+    const catsInStation = new Set(allStation.map((r) => getDishCategory(r)));
+    const tabs = DISH_CATEGORIES.filter((c) => c.id === "all" || catsInStation.has(c.id));
+    let activeCat = "all";
+    if (keepRecipeId || state.lastRecipeId) {
+      const preferId = keepRecipeId || state.lastRecipeId;
+      const pref = allStation.find((r) => r.id === preferId);
+      if (pref) activeCat = getDishCategory(pref);
+    }
 
     const wrap = document.createElement("div");
     wrap.className = "recipe-panel";
@@ -565,17 +695,24 @@ export class HUD {
         ${powerLabel}：${powerOn ? "已打开" : "未打开"}
         ${powerOn ? "" : `<button type="button" class="btn btn-coral btn-sm" data-power-on="${powerKey}">先打开</button>`}
       </p>
-      <p class="recipe-hint">共 ${recipes.length} 道菜 · 选一道；缺料可直接采购到操作台，洗菜后开做</p>
+      <div class="recipe-tabs" role="tablist"></div>
+      <p class="recipe-hint"></p>
       <div class="recipe-list"></div>
       <div class="recipe-detail" hidden></div>
     `;
 
+    const tabsEl = wrap.querySelector(".recipe-tabs");
+    const hintEl = wrap.querySelector(".recipe-hint");
     const listEl = wrap.querySelector(".recipe-list");
     const detailEl = wrap.querySelector(".recipe-detail");
 
+    const filteredRecipes = () =>
+      activeCat === "all" ? allStation : allStation.filter((r) => getDishCategory(r) === activeCat);
+
     const showDetail = (recipeId) => {
-      const recipe = recipes.find((r) => r.id === recipeId);
+      const recipe = allStation.find((r) => r.id === recipeId);
       if (!recipe) return;
+      rememberRecipe(recipe.id);
       const { ingredients, needBuy, canCook } = analyzeRecipe(state, recipe);
       const missCost = needBuy.reduce((s, i) => s + (Number(i.price) || ALL_GOODS.find((g) => g.id === i.id)?.price || 0), 0);
       detailEl.hidden = false;
@@ -647,6 +784,7 @@ export class HUD {
 
       detailEl.querySelectorAll("[data-buy]").forEach((btn) => {
         btn.onclick = () => {
+          rememberRecipe(recipe.id);
           const res = buyIngredientDirect(state, btn.dataset.buy);
           this.toast(res.msg);
           this.openCookRecipeModal(station, recipe.id);
@@ -654,6 +792,7 @@ export class HUD {
       });
       detailEl.querySelectorAll("[data-take]").forEach((btn) => {
         btn.onclick = () => {
+          rememberRecipe(recipe.id);
           const res = takeIngredientToPrep(state, btn.dataset.take);
           this.toast(res.msg);
           this.openCookRecipeModal(station, recipe.id);
@@ -670,6 +809,7 @@ export class HUD {
       const takeAll = detailEl.querySelector("[data-take-all]");
       if (takeAll) {
         takeAll.onclick = () => {
+          rememberRecipe(recipe.id);
           ingredients
             .filter((i) => i.status === "inFridge")
             .forEach((i) => takeIngredientToPrep(state, i.id));
@@ -680,6 +820,7 @@ export class HUD {
       const cookBtn = detailEl.querySelector("[data-cook]");
       if (cookBtn) {
         cookBtn.onclick = () => {
+          rememberRecipe(recipe.id);
           if (!isPowerOn(state, powerKey)) {
             setPower(state, powerKey, "on");
             this.game.scenes.current?.applyPower?.(state);
@@ -694,31 +835,66 @@ export class HUD {
       }
     };
 
-    recipes.forEach((recipe) => {
-      const { needBuy, canCook, ingredients } = analyzeRecipe(state, recipe);
-      const card = document.createElement("button");
-      card.type = "button";
-      card.className = "recipe-card";
-      const miss = needBuy.length
-        ? `缺${needBuy.length}样`
-        : canCook
-          ? "可以开做"
-          : ingredients.some((i) => i.status === "needWash")
-            ? "需洗菜"
-            : "备料中";
-      card.innerHTML = `
-        ${this.renderDishPreview(recipe)}
-        <div class="recipe-card-meta">
-          <strong>${recipe.name}</strong>
-          <span class="recipe-card-tag ${needBuy.length ? "tag-miss" : canCook ? "tag-ok" : "tag-warn"}">${miss}</span>
-        </div>
-      `;
-      card.onclick = () => {
-        listEl.querySelectorAll(".recipe-card").forEach((c) => c.classList.remove("is-active"));
-        card.classList.add("is-active");
-        showDetail(recipe.id);
+    const renderList = (preferId) => {
+      const recipes = filteredRecipes();
+      hintEl.textContent = `共 ${recipes.length} 道 · 缺料可直接采购；洗完菜回来仍停在你选的那道菜`;
+      listEl.innerHTML = "";
+      recipes.forEach((recipe) => {
+        const { needBuy, canCook, ingredients } = analyzeRecipe(state, recipe);
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "recipe-card";
+        card.dataset.rid = recipe.id;
+        const miss = needBuy.length
+          ? `缺${needBuy.length}样`
+          : canCook
+            ? "可以开做"
+            : ingredients.some((i) => i.status === "needWash")
+              ? "需洗菜"
+              : "备料中";
+        card.innerHTML = `
+          ${this.renderDishPreview(recipe)}
+          <div class="recipe-card-meta">
+            <strong>${recipe.name}</strong>
+            <span class="recipe-card-tag ${needBuy.length ? "tag-miss" : canCook ? "tag-ok" : "tag-warn"}">${miss}</span>
+          </div>
+        `;
+        card.onclick = () => {
+          listEl.querySelectorAll(".recipe-card").forEach((c) => c.classList.remove("is-active"));
+          card.classList.add("is-active");
+          showDetail(recipe.id);
+        };
+        listEl.appendChild(card);
+      });
+
+      const preferred =
+        (preferId && recipes.find((r) => r.id === preferId)) ||
+        (state.lastRecipeId && recipes.find((r) => r.id === state.lastRecipeId)) ||
+        recipes[0];
+      if (preferred) {
+        const card = listEl.querySelector(`[data-rid="${preferred.id}"]`);
+        if (card) {
+          card.classList.add("is-active");
+          showDetail(preferred.id);
+        }
+      } else {
+        detailEl.hidden = true;
+        detailEl.innerHTML = "";
+      }
+    };
+
+    tabs.forEach((cat) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "recipe-tab" + (cat.id === activeCat ? " is-active" : "");
+      btn.textContent = cat.name;
+      btn.onclick = () => {
+        activeCat = cat.id;
+        tabsEl.querySelectorAll(".recipe-tab").forEach((b) => b.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        renderList(keepRecipeId || state.lastRecipeId);
       };
-      listEl.appendChild(card);
+      tabsEl.appendChild(btn);
     });
 
     wrap.querySelector("[data-power-on]")?.addEventListener("click", (e) => {
@@ -726,24 +902,10 @@ export class HUD {
       setPower(state, key, "on");
       this.game.scenes.current?.applyPower?.(state);
       this.toast(`${APPLIANCE_NAMES[key] || key}已打开`);
-      this.openCookRecipeModal(station);
+      this.openCookRecipeModal(station, keepRecipeId || state.lastRecipeId);
     });
 
-    // 默认展开（刷新时保持当前菜；灶台优先西红柿炒鸡蛋）
-    const preferred =
-      (keepRecipeId && recipes.find((r) => r.id === keepRecipeId)) ||
-      recipes.find((r) => r.id === "tomatoEgg") ||
-      recipes[0];
-    if (preferred) {
-      const cards = [...listEl.querySelectorAll(".recipe-card")];
-      const idx = recipes.findIndex((r) => r.id === preferred.id);
-      const card = cards[idx] || cards[0];
-      if (card) {
-        card.classList.add("is-active");
-        showDetail(preferred.id);
-      }
-    }
-
+    renderList(keepRecipeId || state.lastRecipeId);
     this.openModal(stationName, wrap, [{ label: "关闭", className: "btn-ghost" }]);
   }
 

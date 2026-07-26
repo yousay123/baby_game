@@ -485,6 +485,33 @@ export function updateSinkWater(sink, t = 0) {
   }
 }
 
+/** 汤锅：圆柱锅身 + 盖，坐在灶眼上 */
+export function createSoupPot() {
+  const g = new THREE.Group();
+  g.name = "soupPot";
+  const metal = { metalness: 0.48, roughness: 0.32, segments: 28 };
+  const body = cyl(0.15, 0.13, 0.2, 0xb8c0cc, metal);
+  body.position.y = 0.1;
+  const band = cyl(0.152, 0.152, 0.03, 0x9aa6b4, metal);
+  band.position.y = 0.08;
+  const rim = cyl(0.165, 0.16, 0.035, 0xa8b2c0, metal);
+  rim.position.y = 0.21;
+  const lid = cyl(0.15, 0.148, 0.045, 0xc8d0da, metal);
+  lid.position.y = 0.255;
+  const knob = sphere(0.028, 0xef6b8a, { segments: 12, roughness: 0.4 });
+  knob.position.y = 0.3;
+  const soup = cyl(0.12, 0.12, 0.04, 0xe8a060, { roughness: 0.35, segments: 16 });
+  soup.position.y = 0.16;
+  [-1, 1].forEach((side) => {
+    const ear = cyl(0.018, 0.018, 0.07, 0x8a95a5, { segments: 10, metalness: 0.5, roughness: 0.3 });
+    ear.rotation.z = Math.PI / 2;
+    ear.position.set(side * 0.165, 0.14, 0);
+    g.add(ear);
+  });
+  g.add(body, band, rim, soup, lid, knob);
+  return g;
+}
+
 export function createStove() {
   const g = new THREE.Group();
   const body = softBox(1.35, 0.22, 0.85, 0x3a3a44);
@@ -501,13 +528,18 @@ export function createStove() {
   pan.position.set(-0.3, 1.25, 0.25);
   const handle = softBox(0.25, 0.04, 0.06, 0x1a1a20);
   handle.position.set(-0.55, 1.25, 0.25);
+  // 汤锅坐在右前灶眼上
+  const pot = createSoupPot();
+  pot.position.set(0.3, 1.2, 0.25);
+  makeInteractable(pot, { type: "cook", cook: "porridge", power: "stove" });
   const knobs = [-0.4, -0.15, 0.15, 0.4].map((x) => {
     const k = cyl(0.04, 0.04, 0.05, 0xd0d0d8);
     k.position.set(x, 1.0, 0.4);
     return k;
   });
-  g.add(body, cab, pan, handle, ...knobs);
+  g.add(body, cab, pan, handle, pot, ...knobs);
   g.userData.burner = g.getObjectByName("burner");
+  g.userData.soupPot = pot;
   return g;
 }
 

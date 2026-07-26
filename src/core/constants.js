@@ -123,6 +123,8 @@ function mkCook(id, name, icon, ingredientIds, opts = {}) {
     egg: "鸡蛋",
     cheese: "芝士",
     oil: "食用油",
+    milk: "牛奶",
+    juice: "果汁",
     noodle: "挂面",
     tomato: "番茄",
     pepper: "青椒",
@@ -143,12 +145,23 @@ function mkCook(id, name, icon, ingredientIds, opts = {}) {
     .filter((x) => x !== "oil")
     .slice(0, 3)
     .map((fid, i) => blob(FOOD_TINT[fid] || "#e8d0a0", 26 + i * 16, 34 + (i % 2) * 6, 34 - i * 2, 26 - i, i === 0 ? 40 : 45));
+  const station = opts.station || "stove";
+  let category = opts.category;
+  if (!category) {
+    if (ids.includes("noodle") || name.includes("面") || name.includes("饭") || name.includes("面包")) category = "staple";
+    else if (name.includes("凉") || name.includes("凉拌")) category = "cold";
+    else if (name.includes("奶") && (name.includes("粥") || name.includes("饮"))) category = "drink";
+    else if (name.includes("汤") || name.includes("炖") || name.includes("粥") || name.includes("牛腩")) category = "soup";
+    else if (station === "rice" || station === "oven") category = "staple";
+    else category = "stirfry";
+  }
   return {
     id,
     name,
     dish: name,
     icon,
-    station: opts.station || "stove",
+    category,
+    station,
     power: opts.power || "stove",
     needHood: opts.needHood !== false,
     time: opts.time || 3000,
@@ -165,6 +178,33 @@ function mkCook(id, name, icon, ingredientIds, opts = {}) {
       foods,
     },
   };
+}
+
+/** 菜谱分类（厨房菜单 Tab） */
+export const DISH_CATEGORIES = [
+  { id: "all", name: "全部" },
+  { id: "stirfry", name: "炒菜" },
+  { id: "staple", name: "主食" },
+  { id: "soup", name: "汤类" },
+  { id: "cold", name: "凉菜" },
+  { id: "drink", name: "饮料" },
+];
+
+export function getDishCategory(recipe) {
+  if (!recipe) return "stirfry";
+  if (recipe.category) return recipe.category;
+  const n = recipe.name || "";
+  const ids = (recipe.ingredients || []).map((i) => i.id);
+  if (ids.includes("noodle") || n.includes("面") || n.includes("饭") || n.includes("面包") || recipe.station === "rice") {
+    return "staple";
+  }
+  if (n.includes("凉") || n.includes("凉拌")) return "cold";
+  if ((n.includes("奶") || n.includes("果汁")) && (n.includes("粥") || n.includes("饮") || ids.includes("milk") || ids.includes("juice"))) {
+    return "drink";
+  }
+  if (n.includes("汤") || n.includes("炖") || n.includes("粥") || n.includes("牛腩")) return "soup";
+  if (recipe.station === "oven") return "staple";
+  return "stirfry";
 }
 
 /** 五十道新增肉菜（鸡/猪/牛/虾） */
@@ -242,16 +282,18 @@ const EXTRA_MEAT_DISHES = [
 
 /** 汤面 / 牛肉面 / 番茄面 / 蔬菜面等 */
 const EXTRA_NOODLE_DISHES = [
-  mkCook("soupNoodle", "汤面", "🍜", ["noodle"], { vessel: "bowl", time: 2600, desc: "清汤热乎乎", needHood: true }),
-  mkCook("beefNoodle", "牛肉面", "🍜", ["noodle", "beef", "onion"], { vessel: "bowl", time: 3400, desc: "汤浓肉香" }),
-  mkCook("tomatoSoupNoodle", "番茄面", "🍅", ["noodle", "tomato", "egg"], { vessel: "bowl", time: 3000, desc: "酸甜一碗面" }),
-  mkCook("vegNoodle", "蔬菜面", "🥬", ["noodle", "broccoli", "carrot"], { vessel: "bowl", time: 3000, desc: "清爽营养" }),
-  mkCook("chickenNoodle", "鸡肉面", "🍗", ["noodle", "chicken"], { vessel: "bowl", time: 3000, desc: "鲜香暖胃" }),
-  mkCook("porkNoodle", "肉丝面", "🥓", ["noodle", "pork"], { vessel: "bowl", time: 3000, desc: "经典早餐面" }),
-  mkCook("shrimpNoodle", "虾仁面", "🦐", ["noodle", "shrimp"], { vessel: "bowl", time: 3000, desc: "鲜掉眉毛" }),
-  mkCook("spinachNoodle", "菠菜面", "🥬", ["noodle", "spinach", "egg"], { vessel: "bowl", time: 2800, desc: "绿意满碗" }),
-  mkCook("mushroomNoodle", "口蘑面", "🍄", ["noodle", "mushroom"], { vessel: "bowl", time: 2800, desc: "菌香汤面" }),
-  mkCook("pepperNoodle", "青椒肉丝面", "🫑", ["noodle", "pork", "pepper"], { vessel: "bowl", time: 3000, desc: "干香过瘾" }),
+  mkCook("soupNoodle", "汤面", "🍜", ["noodle"], { vessel: "bowl", time: 2600, desc: "清汤热乎乎", needHood: true, category: "staple" }),
+  mkCook("beefNoodle", "牛肉面", "🍜", ["noodle", "beef", "onion"], { vessel: "bowl", time: 3400, desc: "汤浓肉香", category: "staple" }),
+  mkCook("tomatoSoupNoodle", "番茄面", "🍅", ["noodle", "tomato", "egg"], { vessel: "bowl", time: 3000, desc: "酸甜一碗面", category: "staple" }),
+  mkCook("vegNoodle", "蔬菜面", "🥬", ["noodle", "broccoli", "carrot"], { vessel: "bowl", time: 3000, desc: "清爽营养", category: "staple" }),
+  mkCook("chickenNoodle", "鸡肉面", "🍗", ["noodle", "chicken"], { vessel: "bowl", time: 3000, desc: "鲜香暖胃", category: "staple" }),
+  mkCook("porkNoodle", "肉丝面", "🥓", ["noodle", "pork"], { vessel: "bowl", time: 3000, desc: "经典早餐面", category: "staple" }),
+  mkCook("shrimpNoodle", "虾仁面", "🦐", ["noodle", "shrimp"], { vessel: "bowl", time: 3000, desc: "鲜香一碗", category: "staple" }),
+  mkCook("spinachNoodle", "菠菜面", "🥬", ["noodle", "spinach", "egg"], { vessel: "bowl", time: 2800, desc: "绿意满碗", category: "staple" }),
+  mkCook("mushroomNoodle", "口蘑面", "🍄", ["noodle", "mushroom"], { vessel: "bowl", time: 2800, desc: "菌香汤面", category: "staple" }),
+  mkCook("pepperNoodle", "青椒肉丝面", "🫑", ["noodle", "pork", "pepper"], { vessel: "bowl", time: 3000, desc: "干香过瘾", category: "staple" }),
+  mkCook("hotMilk", "热牛奶", "🥛", ["milk"], { vessel: "bowl", time: 2000, needHood: false, noOil: true, category: "drink", desc: "暖暖一杯" }),
+  mkCook("fruitJuiceDrink", "鲜榨果汁", "🧃", ["juice"], { vessel: "bowl", time: 1800, needHood: false, noOil: true, category: "drink", desc: "清爽解渴" }),
 ];
 
 export const DISH_RECIPES = [

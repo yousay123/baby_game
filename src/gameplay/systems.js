@@ -25,20 +25,82 @@ export function pickUpPlated(state, platedIndex) {
   return item;
 }
 
+/** 宴席进度：四菜一汤 + 米饭 */
+export function classifyTableDish(item) {
+  const n = String(item?.dish || item?.name || "");
+  if (n.includes("米饭") || n === "饭") return "rice";
+  if (n.includes("汤") || n.endsWith("粥") || n.includes("蛋花")) return "soup";
+  return "dish";
+}
+
+export function getFeastProgress(state) {
+  let dishes = 0;
+  let soup = 0;
+  let rice = 0;
+  for (const f of state.tableFood || []) {
+    const k = classifyTableDish(f);
+    if (k === "rice") rice++;
+    else if (k === "soup") soup++;
+    else dishes++;
+  }
+  const needDishes = 4;
+  const needSoup = 1;
+  const needRice = 1;
+  const complete = dishes >= needDishes && soup >= needSoup && rice >= needRice;
+  return {
+    dishes,
+    soup,
+    rice,
+    needDishes,
+    needSoup,
+    needRice,
+    complete,
+    summary: `菜${Math.min(dishes, needDishes)}/${needDishes} · 汤${Math.min(soup, needSoup)}/${needSoup} · 米饭${Math.min(rice, needRice)}/${needRice}`,
+  };
+}
+
+/** 爸妈帮厨自动下一道宴席菜 */
+export function nextFeastAutoDish(state) {
+  const p = getFeastProgress(state);
+  if (p.complete) return null;
+  if (p.soup < p.needSoup) {
+    return { id: `feast-soup-${Date.now()}`, dish: "番茄蛋花汤", icon: "🍲", vessel: "bowl", hot: true };
+  }
+  if (p.rice < p.needRice) {
+    return { id: `feast-rice-${Date.now()}`, dish: "米饭", icon: "🍚", vessel: "bowl", hot: true };
+  }
+  const names = [
+    { dish: "青椒炒肉", icon: "🫑" },
+    { dish: "西红柿炒鸡蛋", icon: "🍳" },
+    { dish: "宫保鸡丁", icon: "🥜" },
+    { dish: "蒜香茄子", icon: "🍆" },
+    { dish: "清炒西兰花", icon: "🥦" },
+  ];
+  const pick = names[p.dishes % names.length];
+  return { id: `feast-dish-${Date.now()}`, dish: pick.dish, icon: pick.icon, vessel: "plate", hot: true };
+}
+
 export function placeOnTable(state) {
   if (!state.carrying) return false;
   state.tableFood.push(state.carrying);
   state.carrying = null;
-  if (state.mealPhase === "idle") state.mealPhase = "ready";
+  if (state.mealPhase === "idle" || state.mealPhase === "ready") state.mealPhase = "ready";
   emit(state);
   return true;
 }
 
+/** 开始宴席邀请：去客厅分别点爸妈 */
 export function startMealCall(state) {
-  if (!state.tableFood.length) return false;
-  state.mealPhase = "calling";
+  if (!state.tableFood.length) return { ok: false, msg: "还没有菜上桌哦" };
+  const feast = getFeastProgress(state);
+  if (!feast.complete) {
+    return { ok: false, msg: `还差齐套餐：${feast.summary}，先做满四菜一汤和米饭哦` };
+  }
+  state.mealPhase = "invite";
+  state.mealInvited = { dad: false, mom: false };
+  state.cookHelpPhase = "idle";
   emit(state);
-  return true;
+  return { ok: true, msg: "去客厅分别点爸爸、妈妈，请他们去餐厅吃饭" };
 }
 
 export function setMealPhase(state, phase) {
@@ -177,7 +239,11 @@ export function startCookRecipe(state, recipeId, onDone) {
     setPower(state, "hood", "on");
   }
   state.cooking = true;
+  state.lastRecipeId = recipe.id;
+  state.lastRecipeStation = recipe.station || "stove";
   consumePrepIngredients(state, recipe.ingredients);
+  const helpers = state.cookHelpPhase === "helping";
+  const cookMs = helpers ? Math.round(recipe.time * 0.55) : recipe.time;
   setTimeout(() => {
     state.cooking = false;
     state.cooked.push({
@@ -189,9 +255,12 @@ export function startCookRecipe(state, recipeId, onDone) {
     });
     emit(state);
     if (onDone) onDone(recipe);
-  }, recipe.time);
+  }, cookMs);
   emit(state);
-  return { ok: true, msg: `正在做${recipe.name}…` };
+  return {
+    ok: true,
+    msg: helpers ? `爸妈打下手，正在做${recipe.name}…更快哦！` : `正在做${recipe.name}…`,
+  };
 }
 
 /** 兼容旧调用 startCook("stirfry") */
@@ -321,6 +390,8 @@ export function buyIngredientDirect(state, ingredientId) {
 export function buyMissingIngredients(state, recipeId) {
   const recipe = DISH_RECIPES.find((r) => r.id === recipeId);
   if (!recipe) return { ok: false, msg: "未知菜谱" };
+  state.lastRecipeId = recipe.id;
+  state.lastRecipeStation = recipe.station || "stove";
   const { needBuy } = analyzeRecipe(state, recipe);
   if (!needBuy.length) return { ok: true, bought: [], total: 0, msg: "材料已经齐了" };
   const bought = [];

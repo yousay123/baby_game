@@ -68,7 +68,7 @@ export class BaseScene {
     this.spawn = { x: 0, z: 2, yaw: Math.PI };
     this.roomBounds = null;
     this.colliders = [];
-    this.walkRadius = 0.32;
+    this.walkRadius = 0.36;
     this.npcs = [];
   }
 
@@ -208,11 +208,11 @@ export class BaseScene {
       this.player.userData.walking = false;
     }
 
-    // WASD third-person move (relative to camera)
+    // 摇杆 / WASD：走路动画与碰撞走同一套，末尾统一 updateWalkAnim，避免被 idle 冲掉「飘移」
+    let stickWalking = false;
     if (game?.fp) {
       const mv = game.fp.getMoveVector(dt);
       if (mv) {
-        // 坐着时不能走动，需先站起来
         if (this.player.userData.sitting) {
           this._sitMoveToastAt = this._sitMoveToastAt || 0;
           const now = performance.now();
@@ -220,14 +220,15 @@ export class BaseScene {
             this._sitMoveToastAt = now;
             game.toast?.("先站起来再走～");
           }
-          updateWalkAnim(this.player, dt, false);
         } else {
           this.player.userData.target = null;
           this.player.userData.onArrive = null;
           this.player.userData._arrived = false;
+          const prevX = this.player.position.x;
+          const prevZ = this.player.position.z;
           const next = tryMove(
-            this.player.position.x,
-            this.player.position.z,
+            prevX,
+            prevZ,
             mv.dx,
             mv.dz,
             r,
@@ -238,10 +239,9 @@ export class BaseScene {
           this.player.position.x = next.x;
           this.player.position.z = next.z;
           this.player.rotation.y = mv.faceYaw;
-          updateWalkAnim(this.player, dt, true);
+          // 真的挪动了才播走路；贴墙卡住则双腿并拢
+          stickWalking = Math.hypot(next.x - prevX, next.z - prevZ) > 0.0005;
         }
-      } else if (!this.player.userData.target) {
-        updateWalkAnim(this.player, dt, false);
       }
       // Only shelf buy-plates trigger mild inspect zoom (not every appliance)
       let nearest = null;
@@ -302,16 +302,16 @@ export class BaseScene {
       }
     }
     this.clampPlayerInRoom();
-    this.player.userData.walking = walking;
-    // 停下时也要跑动画更新，确保双腿并拢复位
-    updateWalkAnim(this.player, dt, walking);
-    if (!walking && this.player.userData.onArrive && this.player.userData._arrived) {
+    const animWalking = walking || stickWalking;
+    this.player.userData.walking = animWalking;
+    updateWalkAnim(this.player, dt, animWalking);
+    if (!animWalking && this.player.userData.onArrive && this.player.userData._arrived) {
       const cb = this.player.userData.onArrive;
       this.player.userData.onArrive = null;
       this.player.userData.target = null;
       this.player.userData._arrived = false;
       cb();
-    } else if (!walking) {
+    } else if (!animWalking) {
       this.player.userData._arrived = false;
     }
 
@@ -958,6 +958,27 @@ export class HomeScene extends BaseScene {
     if (d.type === "npc") {
       if (d.key === "dad" || d.key === "mom") {
         const who = d.key === "dad" ? "爸爸" : "妈妈";
+        // 宴席邀请：客厅分别点爸妈 → 一起去餐厅
+        if (game.state.mealPhase === "invite") {
+          const inv = game.state.mealInvited || (game.state.mealInvited = { dad: false, mom: false });
+          if (inv[d.key]) {
+            game.toast(`${who}已经答应啦，${inv.dad && inv.mom ? "出发去餐厅吧" : "再去请另一位～"}`);
+            return;
+          }
+          inv[d.key] = true;
+          game.emit();
+          if (inv.dad && inv.mom) {
+            game.toast("爸爸妈妈都答应啦！一家人去餐厅吃饭～");
+            game.state.mealPhase = "seating";
+            game.go("dining").then(() => game.ui.refresh(game.state));
+          } else if (d.key === "dad") {
+            game.toast("爸爸：好！等妈妈一起去餐厅～再去点妈妈");
+          } else {
+            game.toast("妈妈：好的！等爸爸一起～再去点爸爸");
+          }
+          game.ui.refresh(game.state);
+          return;
+        }
         game.ui.openModal(who, `${who}：小蜜糖辛苦啦～要不要领零花钱？`, [
           {
             label: "领零花钱 +¥50",
