@@ -62,6 +62,10 @@ class Game {
         this.scenes.current.handleClick(this, null, interactive);
         return;
       }
+      // 触屏有摇杆时不点地走路，避免误触
+      if (e.pointerType === "touch" && this.ui?.stickVisible) {
+        return;
+      }
       const point = this.input.pickFloorPoint(scene);
       this.scenes.current.handleClick(this, point, null);
     });

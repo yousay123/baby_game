@@ -370,7 +370,22 @@ export class DiningScene extends BaseScene {
   constructor() {
     super("dining");
     this.familyMoving = [];
+    this.playerSeat = null;
     this.spawn = { x: 0, z: 2.6, yaw: Math.PI };
+  }
+
+  /** 座位是否已被爸爸/妈妈/玩家占用（含正在走过去入座） */
+  getSeatOccupant(seatKey) {
+    if (seatKey === "dad") {
+      if (this.familyMoving?.some((m) => m.npc === this.dad && !m.done)) return "爸爸";
+      if (this.dad?.visible && this.dad.userData.sitting) return "爸爸";
+    }
+    if (seatKey === "mom") {
+      if (this.familyMoving?.some((m) => m.npc === this.mom && !m.done)) return "妈妈";
+      if (this.mom?.visible && this.mom.userData.sitting) return "妈妈";
+    }
+    if (this.playerSeat === seatKey) return "你";
+    return null;
   }
 
   async onEnter(game) {
@@ -388,6 +403,7 @@ export class DiningScene extends BaseScene {
       ],
     });
     this.familyMoving = [];
+    this.playerSeat = null;
 
     // 餐厅俯瞰餐桌：相机抬高一些，方便看清桌面与家人
     if (game.fp && this.player) {
@@ -525,6 +541,15 @@ export class DiningScene extends BaseScene {
 
   onCallFamily(game) {
     setMealPhase(game.state, "seating");
+    // 爸妈座位若被玩家占用，先请玩家站起让座
+    if (
+      game.player?.userData.sitting &&
+      (this.playerSeat === "dad" || this.playerSeat === "mom")
+    ) {
+      setPlayerSit(game.player, false);
+      this.playerSeat = null;
+      game.toast("爸爸妈妈要坐这里啦，先站起来让座～");
+    }
     // Appear at dining entrance, then walk to seats
     this.dad.visible = true;
     this.mom.visible = true;
@@ -563,30 +588,60 @@ export class DiningScene extends BaseScene {
     const d = interactive.data;
     if (d.type === "door") {
       if (game.player?.userData.sitting) setPlayerSit(game.player, false);
+      this.playerSeat = null;
       game.go(d.to);
       return;
     }
     if (d.type === "furn" && d.sit) {
       const seat = this.chairSeats?.[d.seat] || { x: 0, z: 1.05, yaw: 0 };
-      game.ui.openModal("餐椅", "要坐下吗？", [
+      const sittingHere =
+        !!game.player?.userData.sitting && this.playerSeat === d.seat;
+
+      if (!sittingHere) {
+        const who = this.getSeatOccupant(d.seat);
+        if (who && who !== "你") {
+          game.toast(`${who}已经坐在这里啦，换个座位吧～`);
+          return;
+        }
+        // 自己已坐别处，不允许叠坐到已占座位；换座时先站起
+        if (who === "你" && this.playerSeat !== d.seat) {
+          game.toast("这个座位有人坐着哦～");
+          return;
+        }
+      }
+
+      game.ui.openModal("餐椅", sittingHere ? "要站起来吗？" : "要坐下吗？", [
         {
-          label: game.player?.userData.sitting ? "站起来" : "坐下",
+          label: sittingHere ? "站起来" : "坐下",
           className: "btn-coral",
           onClick: () => {
-            if (game.player?.userData.sitting) {
+            if (sittingHere || game.player?.userData.sitting) {
               setPlayerSit(game.player, false);
+              this.playerSeat = null;
               game.toast("站起来啦～");
-            } else {
-              this.walkTo({ x: seat.x, z: seat.z }, () => {
-                if (!game.player) return;
-                game.player.position.set(seat.x, 0, seat.z);
-                game.player.rotation.y = seat.yaw;
-                setPlayerSit(game.player, true, { seatY: 0.48 });
-                game.player.rotation.y = seat.yaw;
-                game.toast("坐好啦，小腿自然垂着～");
-                if (game.fp) game.fp.syncCamera(game.player, this.roomBounds);
-              });
+              if (sittingHere) return;
             }
+            // 再检查一次（家人可能在路上入座）
+            const who = this.getSeatOccupant(d.seat);
+            if (who && who !== "你") {
+              game.toast(`${who}已经坐在这里啦，换个座位吧～`);
+              return;
+            }
+            this.walkTo({ x: seat.x, z: seat.z }, () => {
+              if (!game.player) return;
+              const again = this.getSeatOccupant(d.seat);
+              if (again && again !== "你") {
+                game.toast(`${again}已经坐在这里啦～`);
+                return;
+              }
+              game.player.position.set(seat.x, 0, seat.z);
+              game.player.rotation.y = seat.yaw;
+              setPlayerSit(game.player, true, { seatY: 0.48 });
+              game.player.rotation.y = seat.yaw;
+              this.playerSeat = d.seat;
+              game.toast("坐好啦，小腿自然垂着～");
+              if (game.fp) game.fp.syncCamera(game.player, this.roomBounds);
+            });
           },
         },
         { label: "取消", className: "btn-ghost" },

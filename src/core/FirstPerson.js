@@ -35,6 +35,8 @@ export class ThirdPersonControls {
     this._ideal = new THREE.Vector3();
     this._look = new THREE.Vector3();
     this._moved = false;
+    /** 虚拟摇杆：x 左右，z 前后（上为负） */
+    this.stick = { x: 0, z: 0 };
 
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
     canvas.addEventListener("pointerdown", (e) => {
@@ -117,10 +119,14 @@ export class ThirdPersonControls {
     this.pitch = Math.max(this.minPitch, Math.min(0.55, pitch));
     this.basePitch = this.pitch;
     const span = bounds ? Math.min(bounds.halfW, bounds.halfD) : 6;
-    this.distance = Math.min(7.2, Math.max(5.2, span * 0.85));
+    const portrait = typeof window !== "undefined" && window.innerHeight > window.innerWidth * 1.1;
+    // 竖屏手机拉远一点，避免角色占满屏挡住房间
+    const minD = portrait ? 6.2 : 5.2;
+    const maxD = portrait ? 8.4 : 7.2;
+    this.distance = Math.min(maxD, Math.max(minD, span * (portrait ? 1.05 : 0.85)));
     this.baseDist = this.distance;
-    this.maxDist = Math.min(10, Math.max(7.5, span * 1.2));
-    this.minDist = 3.0;
+    this.maxDist = Math.min(11, Math.max(7.5, span * 1.25));
+    this.minDist = portrait ? 4.2 : 3.0;
     this.maxPitch = 0.95;
     this.inspectMode = false;
     this.userLock = false;
@@ -217,20 +223,31 @@ export class ThirdPersonControls {
   }
 
   getMoveVector(dt) {
+    const stickX = this.stick?.x || 0;
+    const stickZ = this.stick?.z || 0;
+    const stickActive = Math.hypot(stickX, stickZ) > 0.08;
     const forward =
       (KEYS.has("KeyW") || KEYS.has("ArrowUp") ? 1 : 0) -
-      (KEYS.has("KeyS") || KEYS.has("ArrowDown") ? 1 : 0);
+      (KEYS.has("KeyS") || KEYS.has("ArrowDown") ? 1 : 0) -
+      (stickActive ? stickZ : 0);
     const strafe =
       (KEYS.has("KeyD") || KEYS.has("ArrowRight") ? 1 : 0) -
-      (KEYS.has("KeyA") || KEYS.has("ArrowLeft") ? 1 : 0);
-    if (!forward && !strafe) return null;
+      (KEYS.has("KeyA") || KEYS.has("ArrowLeft") ? 1 : 0) +
+      (stickActive ? stickX : 0);
+    if (Math.abs(forward) < 0.05 && Math.abs(strafe) < 0.05) return null;
     const sin = Math.sin(this.yaw);
     const cos = Math.cos(this.yaw);
     let dx = -forward * sin + strafe * cos;
     let dz = -forward * cos - strafe * sin;
     const len = Math.hypot(dx, dz) || 1;
-    dx = (dx / len) * this.moveSpeed * dt;
-    dz = (dz / len) * this.moveSpeed * dt;
+    // 摇杆力度影响速度
+    const stickMag = stickActive ? Math.min(1, Math.hypot(stickX, stickZ)) : 1;
+    const keyMag = KEYS.has("KeyW") || KEYS.has("KeyA") || KEYS.has("KeyS") || KEYS.has("KeyD") ||
+      KEYS.has("ArrowUp") || KEYS.has("ArrowDown") || KEYS.has("ArrowLeft") || KEYS.has("ArrowRight")
+      ? 1
+      : stickMag;
+    dx = (dx / len) * this.moveSpeed * dt * keyMag;
+    dz = (dz / len) * this.moveSpeed * dt * keyMag;
     return { dx, dz, faceYaw: Math.atan2(dx, dz) };
   }
 }

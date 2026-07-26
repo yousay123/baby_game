@@ -23,12 +23,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 .top-bar {
   position: absolute;
   inset: 0 0 auto 0;
-  z-index: 10;
+  z-index: 22;
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 12px 16px;
-  background: linear-gradient(180deg, rgba(26,18,32,0.72), transparent);
+  background: linear-gradient(180deg, rgba(26,18,32,0.85), rgba(26,18,32,0.35) 70%, transparent);
   color: #fff;
   pointer-events: none;
 }
@@ -75,6 +75,79 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
   gap: 2px;
   line-height: 1.2;
 }
+.bgm-toggle {
+  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.14);
+  color: #ffe4ee;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  flex-shrink: 0;
+}
+.bgm-toggle.is-muted {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+.bgm-toggle:hover { background: rgba(239, 107, 138, 0.55); }
+
+.virtual-stick {
+  position: absolute;
+  left: max(14px, env(safe-area-inset-left));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  z-index: 16;
+  width: 118px;
+  height: 118px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: auto;
+}
+.virtual-stick[hidden] { display: none !important; }
+.virtual-stick-base {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: rgba(30, 16, 28, 0.28);
+  border: 2px solid rgba(255, 255, 255, 0.38);
+  box-shadow: inset 0 0 24px rgba(255, 255, 255, 0.08);
+  position: relative;
+}
+.virtual-stick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ff9bb0, var(--coral));
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 4px 12px rgba(40, 10, 30, 0.35);
+  transform: translate(0, 0);
+  will-change: transform;
+}
+.virtual-stick.is-active .virtual-stick-base {
+  background: rgba(30, 16, 28, 0.4);
+  border-color: rgba(255, 210, 220, 0.55);
+}
+.virtual-stick-label {
+  position: absolute;
+  left: 50%;
+  bottom: -18px;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 0.08em;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 .wallet small {
   font-size: 10px;
   font-weight: 500;
@@ -171,6 +244,40 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
   opacity: 0.75;
   border: none;
 }
+.inv-list .guide-clickable {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  touch-action: manipulation;
+}
+.inv-list .guide-clickable:hover,
+.inv-list .guide-clickable:active {
+  background: #ffe8f0;
+  border-radius: 8px;
+}
+.inv-list .guide-clickable.guide-done:hover {
+  opacity: 1;
+  text-decoration: none;
+}
+.inv-list .guide-go {
+  flex-shrink: 0;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--coral);
+  white-space: nowrap;
+}
+.inv-list .guide-done .guide-go { color: #6a9a78; }
+#questText.quest-clickable {
+  cursor: pointer;
+  color: #9a3a58;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  touch-action: manipulation;
+}
+#questText.quest-clickable:active { opacity: 0.75; }
 .hud-actions {
   display: flex;
   flex-direction: column;
@@ -583,6 +690,18 @@ body.scene-makeup .makeup-panel {
   padding: 18px;
   box-shadow: var(--shadow);
 }
+@media (max-width: 720px) {
+  .modal-card:has(.recipe-panel) {
+    max-height: min(88vh, 720px);
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    max-width: 100%;
+  }
+  .recipe-list {
+    max-height: min(36vh, 260px);
+  }
+}
 .modal-card:has(.recipe-panel) {
   width: min(560px, 100%);
   max-height: min(86vh, 720px);
@@ -622,6 +741,10 @@ body.scene-makeup .makeup-panel {
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 10px;
   margin-bottom: 14px;
+  max-height: min(42vh, 320px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 2px 8px;
 }
 .recipe-card {
   appearance: none;
@@ -819,29 +942,44 @@ body.scene-makeup .makeup-panel {
     max-height: 36vh;
     flex-direction: column;
   }
-  .hud-card { min-width: 0; flex-shrink: 0; }
-  /* 化妆/换装面板：保证选项区可滚动可见 */
-  .makeup-panel {
-    top: auto;
-    bottom: max(8px, env(safe-area-inset-bottom));
+  /* 厨房/餐厅引导：压缩高度，避免挡住摇杆与角色 */
+  body:not(.scene-makeup) .hud-panel:not(.hud-collapsed) {
+    bottom: max(12px, env(safe-area-inset-bottom));
     right: max(8px, env(safe-area-inset-right));
-    left: max(8px, env(safe-area-inset-left));
-    width: auto;
-    max-height: min(62vh, 560px);
-    min-height: 280px;
-    padding: 10px 12px;
-    gap: 8px;
-    overflow: hidden;
-    z-index: 14;
+    left: auto;
+    max-width: min(320px, calc(100vw - 16px));
   }
-  .makeup-panel-head { flex-shrink: 0; }
-  .makeup-tip { display: none; }
-  .bg-styles {
+  body:not(.scene-makeup) .hud-panel:not(.hud-collapsed) .hud-body {
+    width: min(300px, calc(100vw - 140px));
+    max-height: min(34vh, 280px);
+  }
+  body:not(.scene-makeup) .virtual-stick {
+    z-index: 18;
+    bottom: max(20px, env(safe-area-inset-bottom));
+  }
+  .hud-card { min-width: 0; flex-shrink: 0; }
+  /* 手机化妆屋：左角色 / 右道具；顶栏可点，面板不压导航 */
+  body.scene-makeup .makeup-panel {
+    top: max(148px, calc(env(safe-area-inset-top) + 132px));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    right: max(6px, env(safe-area-inset-right));
+    left: auto;
+    width: clamp(140px, 42vw, 200px);
+    max-height: none;
+    min-height: 0;
+    padding: 6px 6px 8px;
+    gap: 5px;
+    overflow: hidden;
+    z-index: 12;
+  }
+  body.scene-makeup .makeup-panel-head { flex-shrink: 0; }
+  body.scene-makeup .makeup-tip { display: none; }
+  body.scene-makeup .bg-styles {
     flex-shrink: 0;
     margin: 0;
     gap: 4px;
   }
-  .char-styles {
+  body.scene-makeup .char-styles {
     flex-shrink: 0;
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -849,59 +987,80 @@ body.scene-makeup .makeup-panel {
     max-height: none;
     margin: 0;
     padding-bottom: 2px;
-    gap: 6px;
+    gap: 4px;
   }
-  .char-style-btn {
-    min-width: 56px;
-    min-height: 48px;
-    padding: 6px 8px;
+  body.scene-makeup .char-style-btn {
+    min-width: 48px;
+    min-height: 42px;
+    padding: 4px 6px;
+    font-size: 11px;
   }
-  .makeup-modes,
-  .makeup-tabs {
+  body.scene-makeup .makeup-modes,
+  body.scene-makeup .makeup-tabs {
     flex-shrink: 0;
   }
-  .makeup-tabs {
-    max-height: 78px;
+  body.scene-makeup .makeup-modes button,
+  body.scene-makeup .makeup-tabs button {
+    min-height: 36px;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  body.scene-makeup .makeup-tabs {
+    max-height: 64px;
     overflow-y: auto;
   }
-  .makeup-options {
+  body.scene-makeup .makeup-options {
     flex: 1 1 auto;
-    min-height: 150px;
+    min-height: 120px;
     max-height: none !important;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px;
     padding-bottom: 4px;
   }
-  .makeup-options button,
-  .makeup-options .product-card {
-    min-height: 64px;
-    padding: 8px 6px;
+  body.scene-makeup .makeup-options button,
+  body.scene-makeup .makeup-options .product-card {
+    min-height: 56px;
+    padding: 6px 4px;
+    font-size: 12px;
   }
-  .makeup-panel .btn-coral {
+  body.scene-makeup .makeup-panel .btn-coral {
     flex-shrink: 0;
-    margin-top: 4px;
+    margin-top: 2px;
+    min-height: 40px;
+    font-size: 13px;
+    padding: 8px 10px;
   }
-  /* 手机：镜子上移，给底部面板留空 */
-  .makeup-2d {
-    padding: 88px 16px max(64vh, 300px) 16px;
-    align-items: flex-start;
+  body.scene-makeup .makeup-2d {
+    padding: max(148px, calc(env(safe-area-inset-top) + 132px))
+      calc(clamp(140px, 42vw, 200px) + 12px)
+      max(12px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+    align-items: center;
     justify-content: center;
   }
-  .m2d-mirror {
-    max-width: min(360px, 92vw);
+  body.scene-makeup .m2d-mirror {
+    max-width: min(100%, 56vw);
     width: 100%;
     margin: 0 auto;
     flex: 0 1 auto;
   }
-  .m2d-frame {
-    padding: 10px;
-    border-radius: 22px;
+  /* 手机顶栏：品牌收紧，导航一行可滑 */
+  body.scene-makeup .brand p { display: none; }
+  body.scene-makeup .wallet { font-size: 12px; padding: 6px 8px; }
+  body.scene-makeup .m2d-frame {
+    padding: 8px;
+    border-radius: 18px;
   }
-  .m2d-glass {
-    max-height: min(42vh, 380px);
+  body.scene-makeup .m2d-glass {
+    max-height: min(72vh, 520px);
     margin: 0 auto;
+  }
+  .virtual-stick {
+    width: 108px;
+    height: 108px;
+    bottom: max(16px, env(safe-area-inset-bottom));
   }
   .product-card,
   .char-style-btn {
@@ -933,15 +1092,21 @@ body.scene-makeup .makeup-panel {
 @media (max-width: 420px) {
   .brand h1 { font-size: 16px; }
   .hud-body { max-height: 32vh; }
-  .makeup-panel {
-    max-height: min(68vh, 580px);
-    min-height: 300px;
+  body.scene-makeup .makeup-panel {
+    width: clamp(132px, 46vw, 180px);
   }
-  .makeup-options {
-    grid-template-columns: repeat(2, 1fr);
-    min-height: 160px;
+  body.scene-makeup .makeup-2d {
+    padding-right: calc(clamp(132px, 46vw, 180px) + 10px);
+  }
+  body.scene-makeup .m2d-mirror {
+    max-width: min(100%, 50vw);
+  }
+  body.scene-makeup .makeup-options {
+    grid-template-columns: 1fr 1fr;
+    min-height: 110px;
   }
   .scene-nav button { padding: 10px 12px; font-size: 13px; }
+  .bgm-toggle { width: 36px; height: 36px; min-width: 36px; font-size: 16px; }
 }
 
 @media (min-width: 721px) and (max-width: 1100px) {

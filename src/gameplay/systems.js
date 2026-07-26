@@ -221,9 +221,10 @@ export function takeFromFridge(state, idx) {
 }
 
 export function washPrep(state) {
-  const vegs = state.prep.filter((i) => i.tag === "veg" && !i.washed);
-  if (!vegs.length) return false;
-  vegs.forEach((i) => {
+  const washable = new Set(["veg", "meat", "seafood"]);
+  const items = state.prep.filter((i) => !i.washed && washable.has(i.tag));
+  if (!items.length) return false;
+  items.forEach((i) => {
     i.washed = true;
   });
   emit(state);
